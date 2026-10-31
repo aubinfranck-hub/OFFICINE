@@ -1,53 +1,54 @@
 # LGO — Logiciel de Gestion d'Officine (Côte d'Ivoire)
 
-Fonctionne **sans internet** dans la pharmacie. Les vendeuses vendent sur **tablette**. Le pharmacien consulte **à distance** sur le web (comme Smokehouse Devis).
+Un vrai logiciel de pharmacie qui **fonctionne sans internet** à l'officine, avec une **caisse tactile pour tablettes** et un **portail web** pour que le pharmacien suive son officine à distance.
 
 ```
 Tablettes / PC de l'officine ──(WiFi local)──▶  Serveur LGO local (1 PC dans la pharmacie)
                                                       │  envoi automatique quand internet revient
                                                       ▼
-Pharmacien (téléphone, n'importe où) ──web──▶  Serveur LGO cloud (VPS, copie en lecture)
+Pharmacien (téléphone, n'importe où) ──web──▶  Serveur LGO cloud (copie en lecture seule)
 ```
 
-## Ce qui est fait
-- **Caisse tablette** (PWA) : recherche, panier, Espèces / Wave / Orange / MTN / Moov / Bon de santé. Si le serveur est injoignable, la vente est gardée sur la tablette et renvoyée toute seule.
-- **Stock par lots, FEFO** : le lot qui périme en premier part en premier ; les lots périmés ne sont jamais vendus.
-- **Bons de santé** : organismes et taux configurés par le pharmacien (part patient / part organisme).
-- **Mobile money** : paiement « à confirmer » tant que le titulaire ne l'a pas vérifié.
-- **Portail titulaire** : tableau du jour (CA, par mode, par vendeuse, top produits), alertes (ruptures, stock bas, péremptions, périmés), réception de lots, ventes (confirmer / annuler), équipe, journal d'audit.
-- **Sécurité** : titulaire = mot de passe + code d'application d'authentification (pas de SMS). Vendeuses = PIN, accepté **uniquement depuis le réseau de l'officine**. Blocage 5 minutes après 5 essais. Le serveur recalcule les prix (le client n'est jamais cru). Aucun compte par défaut. Le cloud ne reçoit ni mot de passe, ni PIN, ni clé TOTP.
-- Pas de FNE dans ce produit.
+## Fonctions
+**Comptoir** — recherche par nom, DCI ou code-barres · équivalents par DCI (du moins cher au plus cher) · remises · paiement mixte (espèces, Wave, Orange, MTN, Moov, chèque, crédit) avec rendu de monnaie · vente à crédit (ardoise) · tiers payant avec n° d'adhérent · ordonnance et prescripteur · ventes en attente · ticket imprimable · raccourcis F2 (recherche) et F4 (encaisser) · **vente possible même si le serveur est éteint** (la tablette garde la vente et la renvoie).
 
-## Lancer (démo)
-```bash
-npm run seed      # base de démonstration (fictive)
-npm start         # http://localhost:3000
-```
-Démo : titulaire `titulaire@demo.ci` / `demo-officine-2026` + code TOTP affiché par `seed` ; vendeuses Awa `1234`, Koffi `5678`.
-Pour une vraie officine : ne PAS lancer `seed`, ouvrir l'application, écran « Installer l'officine ».
+**Produits et stock** — fiche complète (DCI, dosage, forme, famille, laboratoire, emplacement, prix d'achat et de vente, marge, stock min/max) · import du catalogue par fichier CSV/Excel · lots avec péremption et vente « premier périmé, premier sorti » · alertes (ruptures, stocks bas, péremptions, périmés) · pertes et ajustements · journal des mouvements · inventaire avec comptage et correction des écarts.
 
-## Installer dans la pharmacie
-1. Un PC allumé en permanence dans l'officine, Node.js 22+, `npm start` (variables `DB=/chemin/lgo.db`, `PORT=3000`).
-2. Les tablettes ouvrent `http://IP-DU-PC:3000` puis « Ajouter à l'écran d'accueil ».
-3. Sauvegarde : copier `lgo.db` chaque soir (clé USB / cloud).
-4. Pour que la tablette s'ouvre même si le PC est éteint, il faut HTTPS en local (les navigateurs refusent le mode hors ligne complet en `http://` sur une adresse IP). Sans HTTPS, tout marche tant que le PC de l'officine est allumé ; seul le cas « PC éteint » n'est pas couvert.
+**Achats** — suggestion de commande automatique (stock, ventes des 30 jours, commandes en cours) · bon de commande à imprimer ou envoyer par WhatsApp · réception de livraison (lots, péremptions, nouveaux prix) · dettes et paiements fournisseurs.
 
-## Portail web du pharmacien (cloud)
-Sur un VPS (Contabo / Hostinger), derrière HTTPS (Caddy / Nginx) :
-```bash
-MODE=cloud SYNC_KEY=<longue-clé-secrète> PORT=3000 npm start
+**Caisse** — ouverture avec fond de caisse, entrées/sorties d'espèces, clôture avec comptage et écart · paiements mobile money « à confirmer » par le pharmacien.
+
+**Clients** — fiches, historique, dette et règlements, points de fidélité.
+
+**Tiers payant** — parts des organismes à facturer, bordereaux imprimables, suivi des paiements, taux configurés par le pharmacien.
+
+**Stupéfiants** — registre automatique (entrées, sorties, solde, patient, prescripteur, ordonnance), imprimable.
+
+**Pilotage** — chiffre d'affaires, marge, panier moyen, graphique par jour, modes de paiement, familles, vendeurs, analyse ABC, produits dormants, valeur du stock, créances et dettes.
+
+**Équipe et sécurité** — 4 rôles (titulaire, pharmacien adjoint, préparateur, vendeur) avec droits distincts · titulaire : mot de passe + code Google Authenticator (pas de SMS) · employés : PIN, accepté **uniquement sur le réseau de l'officine** · blocage après 5 essais · journal d'audit · le serveur recalcule tous les prix · aucun mot de passe ni PIN n'est envoyé sur internet.
+
+## Installer à l'officine (Windows)
+1. Installer **Node.js 22 ou plus** (nodejs.org).
+2. Copier le dossier du logiciel sur le PC, puis copier `config-lgo.exemple.bat` en `config-lgo.bat` et y mettre l'adresse du site web et la clé d'envoi (facultatif : sans cela, pas de version web).
+3. Double-cliquer sur **Demarrer-LGO.bat**. La fenêtre affiche l'adresse à ouvrir sur les tablettes (même WiFi). Au premier lancement : écran « Installer l'officine ».
+4. Mises à jour : double-clic sur **Mettre-a-jour-LGO.bat** (récupère la dernière version, ne touche pas aux données).
+5. **Sauvegarde** : copier `lgo.db` chaque soir (clé USB ou cloud).
+
+Mode démonstration : `npm run seed` crée un catalogue et 14 jours de ventes fictifs.
+
+## Version web du pharmacien
+Sur un hébergeur (Render, VPS), derrière HTTPS :
 ```
-Sur le PC de l'officine :
-```bash
-CLOUD_URL=https://lgo.ton-domaine.ci SYNC_KEY=<la-même-clé> npm start
+MODE=cloud SYNC_KEY=<clé-secrète> INIT_EMAIL=<email> INIT_MDP=<mot-de-passe> INIT_TOTP=<clé-authenticator> npm start
 ```
-Le PC envoie toutes les 15 s ventes, stock et organismes dès qu'internet est là. Le pharmacien crée son compte sur le cloud (écran d'installation) et consulte tout en lecture seule.
+L'officine envoie ses données toutes les 15 secondes quand internet est disponible (`CLOUD_URL` et `SYNC_KEY` dans `config-lgo.bat`). Si l'hébergeur perd ses données, l'officine les renvoie toute seule.
 
 ## Tests
-`npm test` : 24 vérifications (FEFO, hors ligne, bons de santé, PIN, TOTP, synchronisation cloud).
+`npm test` : 47 vérifications du serveur (migration depuis l'ancienne version, droits, FEFO, paiements, retours, caisse, tiers payant, inventaire, stupéfiants, statistiques, synchronisation cloud).
 
 ## Limites connues
-- Données de santé des patients (ordonnances, registre des stupéfiants) : **pas encore faits**.
-- Vente hors ligne sur un produit au stock insuffisant : acceptée et signalée « à régulariser ».
-- La clé TOTP est stockée en clair dans la base (à chiffrer avant la mise en production).
-- Pas d'impression de ticket, pas d'import du catalogue (Excel), pas de commandes fournisseurs (seulement la réception de lots).
+- Pas de connexion aux bases officielles de médicaments (interactions, remboursements) : le catalogue est celui de l'officine.
+- Impression de ticket via le navigateur (imprimante thermique réglée comme imprimante Windows).
+- La clé d'authentification du titulaire est stockée en clair dans la base (à chiffrer avant déploiement à grande échelle).
+- HTTPS en local nécessaire pour que la tablette s'ouvre même si le PC de l'officine est éteint.

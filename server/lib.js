@@ -1,38 +1,11 @@
 import { DatabaseSync } from 'node:sqlite'
 import crypto from 'node:crypto'
+import { migrer } from './schema.js'
 
 export function ouvrirBase(fichier) {
   const db = new DatabaseSync(fichier)
   db.exec('PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000;')
-  db.exec(`
-CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT);
-CREATE TABLE IF NOT EXISTS users (
-  id TEXT PRIMARY KEY, nom TEXT NOT NULL, role TEXT NOT NULL CHECK (role IN ('titulaire','vendeur')),
-  email TEXT UNIQUE, mdp_hash TEXT, pin_hash TEXT, totp_secret TEXT, actif INTEGER NOT NULL DEFAULT 1,
-  echecs INTEGER NOT NULL DEFAULT 0, bloque_jusqua INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL);
-CREATE TABLE IF NOT EXISTS sessions (token_hash TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id), expire INTEGER NOT NULL);
-CREATE TABLE IF NOT EXISTS produits (
-  id TEXT PRIMARY KEY, code TEXT, nom TEXT NOT NULL, dci TEXT, forme TEXT, prix INTEGER NOT NULL CHECK (prix >= 0),
-  seuil INTEGER NOT NULL DEFAULT 0, actif INTEGER NOT NULL DEFAULT 1);
-CREATE INDEX IF NOT EXISTS ix_produits_nom ON produits(nom);
-CREATE TABLE IF NOT EXISTS lots (
-  id TEXT PRIMARY KEY, produit_id TEXT NOT NULL REFERENCES produits(id), numero TEXT NOT NULL,
-  peremption TEXT NOT NULL, qte INTEGER NOT NULL DEFAULT 0, UNIQUE (produit_id, numero));
-CREATE TABLE IF NOT EXISTS organismes (id TEXT PRIMARY KEY, nom TEXT NOT NULL, taux INTEGER NOT NULL CHECK (taux BETWEEN 0 AND 100), actif INTEGER NOT NULL DEFAULT 1);
-CREATE TABLE IF NOT EXISTS ventes (
-  id TEXT PRIMARY KEY, numero TEXT NOT NULL, user_id TEXT, user_nom TEXT, total INTEGER NOT NULL,
-  mode TEXT NOT NULL, organisme TEXT, taux_prise_charge INTEGER NOT NULL DEFAULT 0, part_patient INTEGER NOT NULL,
-  paiement_statut TEXT NOT NULL DEFAULT 'confirme', statut TEXT NOT NULL DEFAULT 'valide',
-  hors_ligne INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL, synced INTEGER NOT NULL DEFAULT 0);
-CREATE INDEX IF NOT EXISTS ix_ventes_date ON ventes(created_at);
-CREATE TABLE IF NOT EXISTS lignes_vente (
-  id INTEGER PRIMARY KEY AUTOINCREMENT, vente_id TEXT NOT NULL REFERENCES ventes(id), produit_id TEXT NOT NULL,
-  lot_id TEXT, nom TEXT NOT NULL, qte INTEGER NOT NULL, prix INTEGER NOT NULL);
-CREATE TABLE IF NOT EXISTS mouvements (
-  id INTEGER PRIMARY KEY AUTOINCREMENT, produit_id TEXT NOT NULL, lot_id TEXT, type TEXT NOT NULL,
-  qte INTEGER NOT NULL, ref TEXT, user_id TEXT, created_at TEXT NOT NULL);
-CREATE TABLE IF NOT EXISTS audit (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, user_nom TEXT, action TEXT NOT NULL, detail TEXT, ip TEXT, created_at TEXT NOT NULL);
-`)
+  migrer(db)
   return db
 }
 
