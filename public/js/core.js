@@ -34,6 +34,7 @@ var ACT = {}    // actions déclenchées par data-a
 var INP = {}    // saisies déclenchées par data-i
 
 var cloud = function () { return !!(S.etat && S.etat.mode === 'cloud') }
+var enLigne = function () { return !!(S.etat && S.etat.mode === 'online') }
 var peut = function (p) { var u = S.user; return !!u && !!u.perms && (u.perms.indexOf('*') >= 0 || u.perms.indexOf(p) >= 0) }
 var val = function (id) { var e = document.getElementById(id); return e ? String(e.value).trim() : '' }
 var num = function (id) { var v = val(id).replace(/\s/g, ''); return v === '' ? 0 : Number(v) }
@@ -140,9 +141,13 @@ function aller(vue) { S.vue = vue; S.err = ''; fermerModal(); rendre(); chargerV
 function chargerVue() { var v = VUES[S.vue]; if (v && v.charger) Promise.resolve(v.charger()).then(function () { rendre() }) }
 ACT.aller = function (v) { aller(v) }
 
+ACT.monCompte = function () {
+  ouvrirModal({ titre: 'Mon compte — ' + esc(S.user.nom), corps: '<p class="m">' + esc(S.user.role_label || '') + (S.user.perms && S.user.perms.indexOf('*') < 0 ? ' · ' + S.user.perms.length + ' habilitation(s)' : '') + '</p><h3>Changer mon mot de passe</h3>' + champ('Ancien mot de passe', 'mc-old', { type: 'password' }) + champ('Nouveau mot de passe (8 caractères minimum)', 'mc-new', { type: 'password' }), actions: [{ l: 'Fermer', a: 'fermer' }, { l: 'Changer', a: 'changerMdp', cls: 'p' }] })
+}
+ACT.changerMdp = function () { api('/api/moi/mdp', { body: { ancien: document.getElementById('mc-old').value, nouveau: document.getElementById('mc-new').value } }).then(function () { fermerModal(); toast('Mot de passe changé') }, function (e) { modalErr(e.message) }) }
 function menu() {
   var items = navVisible().map(function (n) { return '<button data-a="aller" data-v="' + n[0] + '" class="' + (S.vue === n[0] ? 'on' : '') + '" title="' + n[1] + '"><span class="ic">' + n[2] + '</span><span class="tx">' + n[1] + '</span></button>' }).join('')
-  return '<nav id="menu"><div class="logo"><i>✚</i><b>LGO</b></div>' + items + '<div class="bas"><div class="qui">' + esc(S.user.nom) + '<br><small>' + esc(S.user.role_label || '') + '</small></div><button data-a="sortir" title="Se déconnecter"><span class="ic">⏻</span><span class="tx">Déconnexion</span></button></div></nav>'
+  return '<nav id="menu"><div class="logo"><i>✚</i><b>LGO</b></div>' + items + '<div class="bas"><div class="qui">' + esc(S.user.nom) + '<br><small>' + esc(S.user.role_label || '') + '</small></div>' + (enLigne() || S.user.role === 'titulaire' ? '<button data-a="monCompte" title="Mon compte"><span class="ic">👤</span><span class="tx">Mon compte</span></button>' : '') + '<button data-a="sortir" title="Se déconnecter"><span class="ic">⏻</span><span class="tx">Déconnexion</span></button></div></nav>'
 }
 function chipsEtat() {
   var c = ''
@@ -155,7 +160,7 @@ function majStatut() {
   var c = $('#statut'); if (!c) return
   var att = S.file.length ? ' · ' + S.file.length + ' vente(s) à envoyer' : ''
   c.className = 'puce' + (S.online ? '' : ' off')
-  c.textContent = cloud() ? (S.online ? 'À distance' : 'Hors ligne') : ((S.online ? 'Connecté' : 'Hors ligne — les ventes sont gardées sur la tablette') + att)
+  c.textContent = cloud() ? (S.online ? 'À distance' : 'Hors ligne') : enLigne() ? (S.online ? 'En ligne' : 'Hors ligne — les ventes sont gardées sur la tablette' + att) : ((S.online ? 'Connecté' : 'Hors ligne — les ventes sont gardées sur la tablette') + att)
 }
 
 function rendre() {
@@ -178,11 +183,11 @@ function vueSetup() {
   return '<div class="centre carte"><h3>Installer l\'officine</h3>' + champ('Nom de l\'officine', 's_off', { af: 1 }) + champ('Nom du titulaire', 's_nom') + champ('Email', 's_mail', { type: 'email' }) + champ('Mot de passe (10 caractères minimum)', 's_mdp', { type: 'password' }) + '<div class="err">' + esc(S.err) + '</div><button class="p" data-a="installer" style="width:100%">Créer</button></div>'
 }
 function vueLogin() {
-  var c = cloud()
+  var c = cloud() || enLigne()
   var tabs = c ? '' : '<div class="ligne-form" style="margin-bottom:10px"><button data-a="logtab" data-v="equipe" class="' + (S.loginTab === 'equipe' ? 'sel' : '') + '">Équipe (PIN)</button><button data-a="logtab" data-v="titulaire" class="' + (S.loginTab === 'titulaire' ? 'sel' : '') + '">Titulaire</button></div>'
   var corps
   if (S.loginTab === 'titulaire' || c) {
-    corps = champ('Email', 'l_mail', { type: 'email', af: 1 }) + champ('Mot de passe', 'l_mdp', { type: 'password' }) + champ('Code à 6 chiffres de Google Authenticator', 'l_code', { max: 6 }) + '<div class="err">' + esc(S.err) + '</div><button class="p" data-a="login" style="width:100%">Se connecter</button>'
+    corps = champ(enLigne() ? 'Identifiant' : 'Email', 'l_mail', { type: enLigne() ? 'text' : 'email', af: 1 }) + champ('Mot de passe', 'l_mdp', { type: 'password' }) + champ(enLigne() ? 'Code Google Authenticator (si la double sécurité est activée)' : 'Code à 6 chiffres de Google Authenticator', 'l_code', { max: 6 }) + '<div class="err">' + esc(S.err) + '</div><button class="p" data-a="login" style="width:100%">Se connecter</button>'
   } else if (!S.choisi) {
     corps = '<p>Qui est au comptoir ?</p><div class="equipe">' + (S.equipe.length ? S.equipe.map(function (u) { return '<button data-a="choisir" data-v="' + esc(u.id) + '" data-n="' + esc(u.nom) + '">' + esc(u.nom) + '<br><small class="m">' + esc(u.role_label) + '</small></button>' }).join('') : '<p class="m">Aucun employé (ou serveur injoignable). Le titulaire peut les créer.</p>') + '</div><div class="err">' + esc(S.err) + '</div>'
   } else {
@@ -230,7 +235,7 @@ function rafraichirCatalogue() {
   return api('/api/catalogue').then(function (c) { S.catalogue = c; store.set('catalogue', c); if (S.vue === 'comptoir' && !modalOuvert()) majResultats() }, function () {})
 }
 function chargerEquipe() {
-  if (cloud()) { S.loginTab = 'titulaire'; return }
+  if (cloud() || enLigne()) { S.loginTab = 'titulaire'; return }
   api('/api/equipe').then(function (l) { S.equipe = l; store.set('equipe', l); rendre() }, function () { S.equipe = store.get('equipe', []); rendre() })
 }
 
@@ -238,8 +243,8 @@ function chargerEquipe() {
 function demarrer() {
   api('/api/etat').then(function (e) { S.etat = e; store.set('etat', e) }, function () {}).then(function () {
     if (S.etat && !S.etat.installe) S.vue = 'setup'
-    else if (S.token && S.user && S.user.perms) { S.vue = peut('stats') ? 'stats' : (cloud() ? 'produits' : 'comptoir'); chargerContexte(); chargerVue() }
-    else { S.token = null; S.vue = 'login'; if (cloud()) S.loginTab = 'titulaire'; chargerEquipe() }
+    else if (S.token && S.user && S.user.perms) { S.vue = peut('stats') ? 'stats' : (cloud() ? 'produits' : 'comptoir'); chargerContexte(); chargerVue(); api('/api/me').then(function (u) { S.user = u; store.set('user', u); rendre() }, function () {}) }
+    else { S.token = null; S.vue = 'login'; if (cloud() || enLigne()) S.loginTab = 'titulaire'; chargerEquipe() }
     rendre()
   })
 }

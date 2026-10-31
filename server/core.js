@@ -12,12 +12,29 @@ export const ROLES = {
   preparateur: { label: 'Préparateur', perms: ['vente', 'remise', 'stupefiant', 'stock', 'achats', 'caisse', 'clients', 'inventaire'] },
   vendeur: { label: 'Vendeur(se)', perms: ['vente', 'caisse', 'clients'] }
 }
-export const peut = (u, p) => !!u && (ROLES[u.role]?.perms === '*' || ROLES[u.role]?.perms?.includes(p))
-export const permsDe = (u) => (ROLES[u.role].perms === '*' ? ['*'] : ROLES[u.role].perms)
+// Catalogue des habilitations : chaque fonction peut être donnée ou retirée à chaque employé.
+// « utilisateurs », « parametres » et « audit » restent réservés au titulaire.
+export const HABILITATIONS = [
+  ['vente', 'Vendre au comptoir', 'Comptoir'], ['remise', 'Faire une remise', 'Comptoir'], ['annuler', 'Annuler une vente, faire un retour', 'Comptoir'],
+  ['confirmer', 'Confirmer les paiements mobile money', 'Comptoir'], ['caisse', 'Ouvrir et clôturer sa caisse, encaisser les règlements', 'Caisse'], ['clients', 'Gérer les clients', 'Clients'],
+  ['produits', 'Créer et modifier les produits, importer le catalogue', 'Produits'], ['marges', 'Voir les prix d\'achat et les marges', 'Produits'],
+  ['stock', 'Stock : pertes, ajustements, alertes, mouvements', 'Stock'], ['inventaire', 'Faire les inventaires', 'Stock'], ['stupefiant', 'Registre des stupéfiants', 'Stock'],
+  ['achats', 'Commandes, livraisons, fournisseurs, dettes', 'Achats'], ['stats', 'Statistiques, historique des caisses, exports de ventes', 'Pilotage'], ['tierspayant', 'Tiers payant : assureurs, bordereaux, relevés', 'Pilotage']
+]
+export const CODES_HABILITATIONS = HABILITATIONS.map((h) => h[0])
+export const droitsDuRole = (role) => (ROLES[role]?.perms === '*' ? ['*'] : ROLES[role]?.perms ?? [])
+// Droits effectifs : ceux du rôle, ou la liste personnalisée donnée par le titulaire à cet employé.
+export function permsDe(u) {
+  if (ROLES[u.role]?.perms === '*') return ['*']
+  if (u.perms) { try { const l = JSON.parse(u.perms); if (Array.isArray(l)) return l.filter((c) => CODES_HABILITATIONS.includes(c)) } catch {} }
+  return droitsDuRole(u.role)
+}
+export const peut = (u, p) => { if (!u) return false; const l = permsDe(u); return l.includes('*') || l.includes(p) }
 
 export function creerContexte({ fichier, mode, cleSync }) {
   const db = ouvrirBase(fichier)
   const cloud = mode === 'cloud'
+  const enLigne = mode === 'online'
   const routes = []
   const get = (sql, ...p) => db.prepare(sql).get(...p)
   const all = (sql, ...p) => db.prepare(sql).all(...p)
@@ -56,7 +73,7 @@ export function creerContexte({ fichier, mode, cleSync }) {
 
   const ctx = {
     db, fichier, get, all, run, tx, journal, exiger, exigerLocal, jour, entier, texte, param, poser,
-    mode, cloud, cleSync, routes, uuid, maintenant, sha256, hacher, verifier, Erreur, peut,
+    mode, cloud, enLigne, cleSync, routes, uuid, maintenant, sha256, hacher, verifier, Erreur, peut,
     route: (m, re, fn) => routes.push([m, new RegExp(`^${re}$`), fn])
   }
   return ctx

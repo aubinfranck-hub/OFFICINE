@@ -1,14 +1,14 @@
 // Données de démonstration (fictives) : à ne PAS utiliser en production.
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { ouvrirBase, uuid, hacher, nouveauSecretTotp, maintenant } from './lib.js'
 
-const db = ouvrirBase(process.env.DB || 'lgo.db')
-if (db.prepare("SELECT 1 x FROM users WHERE role='titulaire'").get()) { console.log('Base déjà initialisée.'); process.exit(0) }
-
+export function semer(db, opts = {}) {
 let graine = 42
 const alea = () => { graine = (graine * 1664525 + 1013904223) % 4294967296; return graine / 4294967296 }
 const run = (sql, ...p) => db.prepare(sql).run(...p)
 
-const secret = nouveauSecretTotp()
+const secret = opts.secretTotp || nouveauSecretTotp()
 const user = (nom, role, extra = {}) => {
   const id = uuid()
   run('INSERT INTO users (id,nom,role,email,mdp_hash,pin_hash,totp_secret,created_at) VALUES (?,?,?,?,?,?,?,?)',
@@ -16,9 +16,10 @@ const user = (nom, role, extra = {}) => {
   return id
 }
 user('Pharmacien démo', 'titulaire', { email: 'titulaire@demo.ci', mdp: 'demo-officine-2026', secret })
-user('Dr Adjoint', 'pharmacien', { pin: '1111' })
-user('Moussa', 'preparateur', { pin: '2222' })
-const awa = user('Awa', 'vendeur', { pin: '1234' })
+const enLigne = (email, mdp) => (opts.enLigne ? { email, mdp } : {})
+user('Dr Adjoint', 'pharmacien', { pin: '1111', ...enLigne('adjoint@demo.ci', 'demo-adjoint-26') })
+user('Moussa', 'preparateur', { pin: '2222', ...enLigne('moussa@demo.ci', 'demo-moussa-26') })
+const awa = user('Awa', 'vendeur', { pin: '1234', ...enLigne('awa@demo.ci', 'demo-awa-26') })
 run("INSERT OR REPLACE INTO meta (k,v) VALUES ('officine','Pharmacie Démo')")
 
 const fournisseurs = {}
@@ -109,7 +110,15 @@ for (let j = 14; j >= 1; j--) {
     }
   }
 }
-console.log('Base de démonstration créée (35 produits, 14 jours de ventes).')
-console.log('Titulaire : titulaire@demo.ci / demo-officine-2026')
-console.log('Secret TOTP (à saisir dans Google Authenticator) :', secret)
-console.log('PIN : Dr Adjoint 1111 (pharmacien), Moussa 2222 (préparateur), Awa 1234 (vendeuse)')
+  return { secret }
+}
+
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  const db = ouvrirBase(process.env.DB || 'lgo.db')
+  if (db.prepare("SELECT 1 x FROM users WHERE role='titulaire'").get()) { console.log('Base déjà initialisée.'); process.exit(0) }
+  const { secret } = semer(db, { enLigne: process.env.MODE === 'online' })
+  console.log('Base de démonstration créée (35 produits, 14 jours de ventes).')
+  console.log('Titulaire : titulaire@demo.ci / demo-officine-2026')
+  console.log('Secret TOTP (à saisir dans Google Authenticator) :', secret)
+  console.log(process.env.MODE === 'online' ? 'Employés en ligne : awa@demo.ci / demo-awa-26, moussa@demo.ci / demo-moussa-26, adjoint@demo.ci / demo-adjoint-26' : 'PIN : Dr Adjoint 1111 (pharmacien), Moussa 2222 (préparateur), Awa 1234 (vendeuse)')
+}

@@ -11,6 +11,7 @@ import { routesAchats } from './routes-achats.js'
 import { routesPilotage } from './routes-pilotage.js'
 import { sync } from './sync.js'
 import { routesOutils } from './routes-outils.js'
+import { semer } from './seed.js'
 
 const ICI = path.dirname(fileURLToPath(import.meta.url))
 const PUBLIC = path.join(ICI, '..', 'public')
@@ -26,10 +27,13 @@ export function creerServeur({ fichier = process.env.DB || 'lgo.db', mode = proc
   const { db, get, run, routes } = ctx
 
   // Cloud : le compte du titulaire est créé à partir des variables d'environnement (il survit à un redéploiement)
-  if (mode === 'cloud' && process.env.INIT_EMAIL && process.env.INIT_MDP && process.env.INIT_TOTP && !get("SELECT 1 x FROM users WHERE role='titulaire'")) {
+  if ((mode === 'cloud' || mode === 'online') && process.env.INIT_EMAIL && process.env.INIT_MDP && process.env.INIT_TOTP && !get("SELECT 1 x FROM users WHERE role='titulaire'")) {
     run('INSERT INTO users (id,nom,role,email,mdp_hash,totp_secret,created_at) VALUES (?,?,?,?,?,?,?)', uuid(), process.env.INIT_NOM || 'Titulaire', 'titulaire', process.env.INIT_EMAIL.toLowerCase(), hacher(process.env.INIT_MDP), process.env.INIT_TOTP, maintenant())
     run("INSERT OR REPLACE INTO meta (k,v) VALUES ('officine',?)", process.env.INIT_OFFICINE || 'Officine')
   }
+
+  // Démonstration publique : jeu de données fictif créé au démarrage (DEMO=1, mode en ligne uniquement)
+  if (mode === 'online' && process.env.DEMO === '1' && !get("SELECT 1 x FROM users WHERE role='titulaire'")) semer(db, { enLigne: true, secretTotp: process.env.INIT_TOTP || undefined })
 
   const { utilisateurDe } = routesAuth(ctx)
   routesComptoir(ctx)

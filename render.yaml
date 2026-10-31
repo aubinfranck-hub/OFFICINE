@@ -1,0 +1,31 @@
+# Modèle Render pour la VERSION EN LIGNE COMPLÈTE (la pharmacie travaille directement sur le web).
+# Les données sont dans une base de fichier : il faut donc un disque permanent (offre payante « Starter » + disque).
+# Mode d'emploi : Render → New → Blueprint → choisir ce dépôt → renseigner les 4 valeurs demandées.
+services:
+  - type: web
+    name: lgo-pharmacie-en-ligne
+    runtime: node
+    plan: starter
+    region: frankfurt
+    buildCommand: echo "rien à installer"
+    startCommand: node --no-warnings server/server.js
+    healthCheckPath: /api/sante
+    disk:
+      name: donnees-lgo
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: MODE
+        value: online
+      - key: NODE_VERSION
+        value: "22"
+      - key: DB
+        value: /var/data/lgo.db
+      - key: INIT_OFFICINE
+        sync: false
+      - key: INIT_EMAIL
+        sync: false
+      - key: INIT_MDP
+        sync: false
+      - key: INIT_TOTP
+        sync: false

@@ -5,9 +5,10 @@
   "type": "module",
   "description": "LGO — logiciel de gestion d'officine, hors ligne, tablette vendeuses + portail web titulaire",
   "scripts": {
+    "demo-en-ligne": "MODE=online DEMO=1 node --no-warnings server/server.js",
     "start": "node --no-warnings server/server.js",
     "seed": "node --no-warnings server/seed.js",
-    "test": "node --no-warnings tests/api.test.js"
+    "test": "node --no-warnings tests/api.test.js && node --no-warnings tests/enligne.test.js"
   },
   "engines": { "node": ">=22.5" }
 }

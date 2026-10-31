@@ -28,7 +28,7 @@ Pharmacien (téléphone, n'importe où) ──web──▶  Serveur LGO cloud (c
 
 **Pilotage** — chiffre d'affaires, marge, panier moyen, graphique par jour, modes de paiement, familles, vendeurs, analyse ABC, produits dormants, valeur du stock, créances et dettes.
 
-**Équipe et sécurité** — 4 rôles (titulaire, pharmacien adjoint, préparateur, vendeur) avec droits distincts · titulaire : mot de passe + code Google Authenticator (pas de SMS) · employés : PIN, accepté **uniquement sur le réseau de l'officine** · blocage après 5 essais · journal d'audit · le serveur recalcule tous les prix · aucun mot de passe ni PIN n'est envoyé sur internet.
+**Équipe et habilitations** — 4 rôles de départ (titulaire, pharmacien adjoint, préparateur, vendeur) ; le titulaire peut aussi donner ou retirer **chacune des 14 fonctions** à chaque personne, avec effet immédiat · titulaire : mot de passe + code Google Authenticator (pas de SMS) · employés : PIN, accepté **uniquement sur le réseau de l'officine** · blocage après 5 essais · journal d'audit · le serveur recalcule tous les prix · aucun mot de passe ni PIN n'est envoyé sur internet.
 
 ## Installer à l'officine (Windows)
 1. Installer **Node.js 22 ou plus** (nodejs.org).
@@ -39,6 +39,11 @@ Pharmacien (téléphone, n'importe où) ──web──▶  Serveur LGO cloud (c
 
 Mode démonstration : `npm run seed` crée un catalogue et 14 jours de ventes fictifs.
 
+## Trois modes (une officine en choisit un)
+- **Officine** (`MODE=local`) : serveur sur le PC de la pharmacie, hors ligne complet, connexion des employés par PIN sur le réseau local.
+- **Copie web** (`MODE=cloud`) : le pharmacien consulte à distance, en lecture seule.
+- **En ligne complet** (`MODE=online`) : toutes les fonctions sur le web, identifiant + mot de passe pour chaque personne, **habilitations par fonction** réglées par le titulaire. Voir `deploiement/LISEZ-MOI.md` et `render.yaml`.
+
 ## Version web du pharmacien
 Sur un hébergeur (Render, VPS), derrière HTTPS :
 ```
@@ -47,7 +52,7 @@ MODE=cloud SYNC_KEY=<clé-secrète> INIT_EMAIL=<email> INIT_MDP=<mot-de-passe> I
 L'officine envoie ses données toutes les 15 secondes quand internet est disponible (`CLOUD_URL` et `SYNC_KEY` dans `config-lgo.bat`). Si l'hébergeur perd ses données, l'officine les renvoie toute seule.
 
 ## Tests
-`npm test` : 55 vérifications du serveur (migration depuis l'ancienne version, droits, FEFO, paiements, retours, caisse, tiers payant, inventaire, stupéfiants, statistiques, synchronisation cloud).
+`npm test` : 74 vérifications du serveur (migration depuis l'ancienne version, droits, FEFO, paiements, retours, caisse, tiers payant, inventaire, stupéfiants, statistiques, synchronisation cloud).
 
 ## Limites connues
 - Pas de connexion aux bases officielles de médicaments (interactions, remboursements) : le catalogue est celui de l'officine.

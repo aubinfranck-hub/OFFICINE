@@ -62,6 +62,14 @@ export function routesOutils(ctx) {
   }
   const liste = () => (dossier && fs.existsSync(dossier) ? fs.readdirSync(dossier).filter((f) => /^lgo-.*\.db$/.test(f)).sort().reverse().map((f) => ({ nom: f, taille: fs.statSync(path.join(dossier, f)).size, date: fs.statSync(path.join(dossier, f)).mtime.toISOString() })) : [])
   route('GET', '/api/sauvegardes', ({ user }) => { exiger(user, 'parametres'); return { dossier, gardees: GARDER, fichiers: liste() } })
+  // Télécharger une sauvegarde (pour la garder ailleurs que sur le serveur)
+  route('GET', '/api/sauvegardes/telecharger', ({ user, q }) => {
+    exiger(user, 'parametres')
+    const nom = q.get('nom') || ''
+    if (!dossier || !/^lgo-[\w-]+\.db$/.test(nom) || !fs.existsSync(path.join(dossier, nom))) throw new ctx.Erreur(404, 'Sauvegarde introuvable')
+    journal(user, 'sauvegarde_telechargee', nom)
+    return { __fichier: true, type: 'application/octet-stream', nom, contenu: fs.readFileSync(path.join(dossier, nom)) }
+  })
   route('POST', '/api/sauvegardes/maintenant', ({ user }) => {
     exigerLocal(); exiger(user, 'parametres')
     const nom = sauvegarder(`-${maintenant().slice(11, 16).replace(':', 'h')}`)

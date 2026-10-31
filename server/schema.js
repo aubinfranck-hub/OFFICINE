@@ -173,6 +173,7 @@ function migrerV3(db) {
     ajouter('organismes', 'delai_paiement', 'INTEGER NOT NULL DEFAULT 30')
     ajouter('produits', 'remboursable', 'INTEGER NOT NULL DEFAULT 1')
     ajouter('bordereaux', 'echeance', 'TEXT')
+    ajouter('users', 'perms', 'TEXT')
     db.exec(`UPDATE bordereaux SET echeance = date(created_at,'+30 day') WHERE echeance IS NULL;
       UPDATE produits SET remboursable = 0 WHERE lower(COALESCE(famille,'')) = 'parapharmacie';
       INSERT OR REPLACE INTO meta (k,v) VALUES ('schema_version','3')`)
