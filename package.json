@@ -1,0 +1,13 @@
+{
+  "name": "lgo-officine",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "LGO — logiciel de gestion d'officine, hors ligne, tablette vendeuses + portail web titulaire",
+  "scripts": {
+    "start": "node --no-warnings server/server.js",
+    "seed": "node --no-warnings server/seed.js",
+    "test": "node --no-warnings tests/api.test.js"
+  },
+  "engines": { "node": ">=22.5" }
+}

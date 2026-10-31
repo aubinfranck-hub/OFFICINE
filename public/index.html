@@ -1,0 +1,372 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0f7b4f">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/icon.svg">
+<title>LGO Officine</title>
+<style>
+:root{--v:#0f7b4f;--vf:#0a5c3b;--vc:#e3f3eb;--g:#f4f7f5;--t:#1c2a24;--m:#6a7a72;--b:#d5dfda;--r:#c0392b;--o:#d98200;--w:#fff}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;font:16px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--g);color:var(--t)}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer;border:0;border-radius:12px;padding:12px 16px;background:var(--w);border:1px solid var(--b);min-height:46px}
+button.p{background:var(--v);color:#fff;border-color:var(--v);font-weight:600}
+button.p:disabled{opacity:.45}
+button.d{color:var(--r)}
+button.sel{background:var(--vc);border-color:var(--v);color:var(--vf);font-weight:600}
+input,select{width:100%;padding:12px;border:1px solid var(--b);border-radius:10px;background:var(--w);min-height:46px}
+label{display:block;font-size:13px;color:var(--m);margin:10px 0 4px}
+header{display:flex;gap:10px;align-items:center;padding:8px 14px;background:var(--v);color:#fff;position:sticky;top:0;z-index:5;flex-wrap:wrap}
+header b{font-size:17px}
+header .sp{flex:1}
+header button{background:rgba(255,255,255,.14);color:#fff;border-color:transparent;min-height:40px;padding:8px 12px}
+header button.on{background:#fff;color:var(--vf);font-weight:700}
+.chip{padding:3px 10px;border-radius:99px;font-size:13px;background:rgba(255,255,255,.2)}
+.chip.off{background:var(--o);color:#fff}
+.wrap{max-width:1200px;margin:0 auto;padding:14px}
+.card{background:var(--w);border:1px solid var(--b);border-radius:14px;padding:14px;margin-bottom:12px}
+.card h3{margin:0 0 10px;font-size:16px}
+.grid{display:grid;gap:12px}
+.kpis{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+.kpi b{display:block;font-size:24px}
+.kpi span{color:var(--m);font-size:13px}
+.caisse{display:grid;grid-template-columns:1fr 380px;gap:14px;align-items:start}
+@media(max-width:820px){.caisse{grid-template-columns:1fr}}
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px}
+.tile{text-align:left;padding:12px;min-height:86px;display:flex;flex-direction:column;justify-content:space-between}
+.tile small{color:var(--m)}
+.tile.rup{opacity:.55}
+.ligne{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--g)}
+.ligne .n{flex:1}
+.ligne button{min-height:38px;width:38px;padding:0}
+.tot{font-size:26px;font-weight:700;display:flex;justify-content:space-between;margin:10px 0}
+.modes{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:8px 0}
+table{width:100%;border-collapse:collapse}
+th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--g);font-size:14px;vertical-align:top}
+th{color:var(--m);font-weight:600;font-size:12px}
+.r{text-align:right}
+.bad{color:var(--r);font-weight:600}.warn{color:var(--o);font-weight:600}.ok{color:var(--v);font-weight:600}
+.pin{display:grid;grid-template-columns:repeat(3,76px);gap:10px;justify-content:center;margin:14px 0}
+.pin button{height:64px;font-size:22px}
+.dots{text-align:center;font-size:34px;letter-spacing:8px;height:44px}
+.center{max-width:430px;margin:30px auto}
+.team{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px}
+.err{color:var(--r);min-height:22px;margin-top:8px}
+.row{display:flex;gap:8px;align-items:end;flex-wrap:wrap}.row>*{flex:1;min-width:120px}
+.mono{font-family:ui-monospace,monospace;word-break:break-all;background:var(--g);padding:10px;border-radius:8px}
+.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:#1c2a24;color:#fff;padding:12px 18px;border-radius:12px;z-index:9;max-width:90vw}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+'use strict'
+// ───────── Utilitaires ─────────
+var $ = function (s) { return document.querySelector(s) }
+var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] }) }
+var F = function (n) { return Number(n || 0).toLocaleString('fr-FR') + ' F' }
+var uuid = function () {
+  if (window.crypto && crypto.randomUUID) return crypto.randomUUID()
+  var b = new Uint8Array(16); crypto.getRandomValues(b); b[6] = (b[6] & 15) | 64; b[8] = (b[8] & 63) | 128
+  var h = Array.prototype.map.call(b, function (x) { return ('0' + x.toString(16)).slice(-2) }).join('')
+  return h.slice(0, 8) + '-' + h.slice(8, 12) + '-' + h.slice(12, 16) + '-' + h.slice(16, 20) + '-' + h.slice(20)
+}
+var store = {
+  get: function (k, d) { try { var v = localStorage.getItem('lgo_' + k); return v == null ? d : JSON.parse(v) } catch (e) { return d } },
+  set: function (k, v) { try { localStorage.setItem('lgo_' + k, JSON.stringify(v)) } catch (e) {} },
+  del: function (k) { try { localStorage.removeItem('lgo_' + k) } catch (e) {} }
+}
+var MODES = { especes: 'Espèces', wave: 'Wave', orange: 'Orange Money', mtn: 'MTN Money', moov: 'Moov Money', bon_sante: 'Bon de santé' }
+var MOBILE = ['wave', 'orange', 'mtn', 'moov']
+
+var S = {
+  etat: null, token: store.get('token', null), user: store.get('user', null),
+  vue: 'login', onglet: 'caisse', online: true, q: '', panier: [], mode: 'especes', organisme: '',
+  catalogue: store.get('catalogue', { produits: [], organismes: [] }), file: store.get('file', []),
+  date: new Date().toISOString().slice(0, 10), data: {}, err: '', pin: '', choisi: null, loginTab: 'vendeuse', equipe: [], secret: null
+}
+
+function toast(m) { var t = document.createElement('div'); t.className = 'toast'; t.textContent = m; document.body.appendChild(t); setTimeout(function () { t.remove() }, 3200) }
+
+// ───────── Réseau ─────────
+function api(path, opt) {
+  opt = opt || {}
+  var h = { 'content-type': 'application/json' }
+  if (S.token) h.authorization = 'Bearer ' + S.token
+  return fetch(path, { method: opt.method || (opt.body ? 'POST' : 'GET'), headers: h, body: opt.body ? JSON.stringify(opt.body) : undefined }).then(function (r) {
+    S.online = true
+    return r.json().catch(function () { return {} }).then(function (j) {
+      if (!r.ok) {
+        if (r.status === 401 && S.token && path !== '/api/login' && path !== '/api/pin') { deconnecter(true) }
+        var e = new Error(j.erreur || 'Erreur ' + r.status); e.http = r.status; throw e
+      }
+      return j
+    })
+  }, function () { S.online = false; var e = new Error('Serveur injoignable'); e.reseau = true; throw e })
+}
+
+// ───────── Démarrage ─────────
+function demarrer() {
+  api('/api/etat').then(function (e) { S.etat = e; store.set('etat', e) }, function () { S.etat = store.get('etat', null) }).then(function () {
+    if (S.etat && !S.etat.installe) S.vue = 'setup'
+    else if (S.token && S.user) { S.vue = 'app'; S.onglet = S.user.role === 'titulaire' && S.etat && S.etat.mode === 'cloud' ? 'tableau' : 'caisse'; chargerOnglet() ; rafraichirCatalogue() }
+    else S.vue = 'login'
+    if (S.vue === 'login') chargerEquipe()
+    rendre()
+  })
+}
+function chargerEquipe() {
+  if (S.etat && S.etat.mode === 'cloud') { S.loginTab = 'titulaire'; return }
+  api('/api/equipe').then(function (l) { S.equipe = l; store.set('equipe', l); rendre() }, function () { S.equipe = store.get('equipe', []); rendre() })
+}
+function rafraichirCatalogue() {
+  if (!S.token || (S.etat && S.etat.mode === 'cloud')) return Promise.resolve()
+  return api('/api/catalogue').then(function (c) { S.catalogue = c; store.set('catalogue', c); if (S.vue === 'app' && S.onglet === 'caisse') rendre() }, function () {})
+}
+function deconnecter(silencieux) {
+  if (!silencieux && S.token) api('/api/logout', { body: {} }).catch(function () {})
+  S.token = null; S.user = null; store.del('token'); store.del('user'); S.vue = 'login'; S.pin = ''; S.choisi = null; S.err = ''
+  chargerEquipe(); rendre()
+}
+function ouvrirSession(r) {
+  S.token = r.token; S.user = r.user; store.set('token', r.token); store.set('user', r.user)
+  S.vue = 'app'; S.err = ''; S.onglet = r.user.role === 'titulaire' && S.etat.mode === 'cloud' ? 'tableau' : 'caisse'
+  rafraichirCatalogue(); chargerOnglet(); rendre()
+}
+
+// ───────── Caisse hors ligne ─────────
+function ajouter(id) {
+  var p = S.catalogue.produits.find(function (x) { return x.id === id }); if (!p) return
+  var l = S.panier.find(function (x) { return x.id === id })
+  if (l) l.qte++; else S.panier.push({ id: id, nom: p.nom, prix: p.prix, qte: 1 })
+  rendre()
+}
+function totalPanier() { return S.panier.reduce(function (s, l) { return s + l.prix * l.qte }, 0) }
+function valider() {
+  if (!S.panier.length) return
+  if (S.mode === 'bon_sante' && !S.organisme) { toast('Choisis l\'organisme du bon de santé'); return }
+  var vente = { id: uuid(), mode: S.mode, organisme_id: S.mode === 'bon_sante' ? S.organisme : undefined, created_at: new Date().toISOString(),
+    lignes: S.panier.map(function (l) { return { produit_id: l.id, qte: l.qte } }) }
+  var total = totalPanier()
+  S.panier.forEach(function (l) { var p = S.catalogue.produits.find(function (x) { return x.id === l.id }); if (p) p.stock = Math.max(0, p.stock - l.qte) })
+  store.set('catalogue', S.catalogue)
+  api('/api/ventes', { body: vente }).then(function (r) {
+    toast('Vente ' + r.numero + ' · ' + F(r.part_patient != null ? r.part_patient : total) + (r.paiement_statut === 'a_confirmer' ? ' (paiement à confirmer)' : ''))
+  }, function (e) {
+    if (e.reseau) { vente.hors_ligne = true; S.file.push(vente); store.set('file', S.file); toast('Serveur injoignable : vente enregistrée sur la tablette (' + S.file.length + ' en attente)') }
+    else { toast(e.message); rafraichirCatalogue() }
+  }).then(function () { S.panier = []; S.mode = 'especes'; S.organisme = ''; rendre() })
+}
+var envoi = false
+function viderFile() {
+  if (envoi || !S.file.length || !S.token) return
+  envoi = true
+  var suite = function () {
+    if (!S.file.length) { envoi = false; rafraichirCatalogue(); rendre(); return }
+    var v = S.file[0]; v.hors_ligne = true
+    api('/api/ventes', { body: v }).then(function () { S.file.shift(); store.set('file', S.file); suite() },
+      function (e) {
+        if (e.reseau || e.http === 401) { envoi = false; return }
+        if (e.http >= 400 && e.http < 500) { toast('Vente refusée par le serveur : ' + e.message); S.file.shift(); store.set('file', S.file); suite() } else envoi = false
+      })
+  }
+  suite()
+}
+setInterval(function () { viderFile(); if (S.vue === 'app') api('/api/etat').then(function () { majStatut() }, function () { majStatut() }) }, 10000)
+window.addEventListener('online', viderFile)
+function majStatut() { var c = $('#statut'); if (c) { c.className = 'chip' + (S.online ? '' : ' off'); c.textContent = (S.online ? 'En ligne' : 'Hors ligne') + (S.file.length ? ' · ' + S.file.length + ' en attente' : '') } }
+
+// ───────── Données titulaire ─────────
+function chargerOnglet() {
+  if (!S.user || S.user.role !== 'titulaire') { if (S.onglet === 'ventes') api('/api/ventes?date=' + S.date).then(function (v) { S.data.ventes = v; rendre() }, function () {}); return }
+  var o = S.onglet, d = S.data
+  var m = function (cle, url) { return api(url).then(function (r) { d[cle] = r }, function (e) { S.err = e.message }) }
+  var jobs = []
+  if (o === 'tableau') jobs = [m('rapport', '/api/rapport?date=' + S.date), m('alertes', '/api/alertes')]
+  if (o === 'stock') jobs = [m('alertes', '/api/alertes'), m('stock', '/api/stock')]
+  if (o === 'ventes') jobs = [m('ventes', '/api/ventes?date=' + S.date)]
+  if (o === 'equipe') jobs = [m('equipe', '/api/utilisateurs')]
+  if (o === 'bons') jobs = [m('organismes', '/api/organismes')]
+  if (o === 'journal') jobs = [m('audit', '/api/audit')]
+  Promise.all(jobs).then(function () { rendre() })
+}
+
+// ───────── Vues ─────────
+function entete() {
+  var t = S.user && S.user.role === 'titulaire', cloud = S.etat && S.etat.mode === 'cloud'
+  var onglets = []
+  if (!cloud) onglets.push(['caisse', 'Caisse'])
+  if (t) onglets.push(['tableau', 'Tableau'], ['stock', 'Stock'])
+  onglets.push(['ventes', 'Ventes'])
+  if (t) onglets.push(['equipe', 'Équipe'], ['bons', 'Bons de santé'], ['journal', 'Journal'])
+  return '<header><b>' + esc((S.etat && S.etat.officine) || 'LGO') + (cloud ? ' · à distance' : '') + '</b><span id="statut" class="chip"></span><span class="sp"></span>' +
+    onglets.map(function (o) { return '<button data-a="onglet" data-v="' + o[0] + '" class="' + (S.onglet === o[0] ? 'on' : '') + '">' + o[1] + '</button>' }).join('') +
+    '<button data-a="sortir">' + esc(S.user.nom) + ' ✕</button></header>'
+}
+
+function vueSetup() {
+  if (S.secret) return '<div class="center card"><h3>Installation terminée</h3><p>Ajoute ce code dans une application d\'authentification (Google Authenticator, Aegis…). Il sera demandé à chaque connexion du titulaire. <b>Il ne sera plus affiché.</b></p><div class="mono">' + esc(S.secret.totp_secret) + '</div><p class="mono">' + esc(S.secret.otpauth) + '</p><button class="p" data-a="fini" style="width:100%">J\'ai enregistré le code</button></div>'
+  return '<div class="center card"><h3>Installer l\'officine</h3><label>Nom de l\'officine</label><input id="s_off"><label>Nom du titulaire</label><input id="s_nom"><label>Email</label><input id="s_mail" type="email"><label>Mot de passe (10 caractères minimum)</label><input id="s_mdp" type="password"><div class="err">' + esc(S.err) + '</div><button class="p" data-a="installer" style="width:100%">Créer</button></div>'
+}
+function vueLogin() {
+  var cloud = S.etat && S.etat.mode === 'cloud'
+  var tabs = cloud ? '' : '<div class="row" style="margin-bottom:10px"><button data-a="tab" data-v="vendeuse" class="' + (S.loginTab === 'vendeuse' ? 'sel' : '') + '">Vendeuse</button><button data-a="tab" data-v="titulaire" class="' + (S.loginTab === 'titulaire' ? 'sel' : '') + '">Titulaire</button></div>'
+  var corps
+  if (S.loginTab === 'titulaire' || cloud) {
+    corps = '<label>Email</label><input id="l_mail" type="email" autocomplete="username"><label>Mot de passe</label><input id="l_mdp" type="password" autocomplete="current-password"><label>Code de l\'application d\'authentification</label><input id="l_code" inputmode="numeric" maxlength="6" autocomplete="one-time-code"><div class="err">' + esc(S.err) + '</div><button class="p" data-a="login" style="width:100%">Se connecter</button>'
+  } else if (!S.choisi) {
+    corps = '<p>Qui est à la caisse ?</p><div class="team">' + (S.equipe.length ? S.equipe.map(function (u) { return '<button data-a="choisir" data-v="' + esc(u.id) + '" data-n="' + esc(u.nom) + '" style="height:70px;font-size:18px">' + esc(u.nom) + '</button>' }).join('') : '<p>Aucune vendeuse (ou serveur injoignable).</p>') + '</div><div class="err">' + esc(S.err) + '</div>'
+  } else {
+    corps = '<p style="text-align:center"><b>' + esc(S.choisi.nom) + '</b> · saisis ton PIN</p><div class="dots">' + '●'.repeat(S.pin.length) + '</div><div class="pin">' +
+      ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'C', '0', 'OK'].map(function (k) { return '<button data-a="touche" data-v="' + k + '" class="' + (k === 'OK' ? 'p' : '') + '">' + k + '</button>' }).join('') + '</div><div class="err" style="text-align:center">' + esc(S.err) + '</div><button data-a="retour" style="width:100%">Changer de vendeuse</button>'
+  }
+  return '<div class="center card"><h3>' + esc((S.etat && S.etat.officine) || 'LGO Officine') + '</h3>' + tabs + corps + '</div>'
+}
+function vueCaisse() {
+  var q = S.q.trim().toLowerCase()
+  var prods = S.catalogue.produits.filter(function (p) { return !q || (p.nom + ' ' + (p.dci || '') + ' ' + (p.code || '')).toLowerCase().indexOf(q) >= 0 }).slice(0, 60)
+  var tuiles = prods.map(function (p) {
+    return '<button class="tile ' + (p.stock <= 0 ? 'rup' : '') + '" data-a="ajouter" data-v="' + esc(p.id) + '"><span>' + esc(p.nom) + '</span><span><b>' + F(p.prix) + '</b> <small>· stock ' + p.stock + '</small></span></button>'
+  }).join('') || '<p>Aucun produit.</p>'
+  var lignes = S.panier.map(function (l) {
+    return '<div class="ligne"><span class="n">' + esc(l.nom) + '<br><small>' + F(l.prix) + '</small></span><button data-a="moins" data-v="' + esc(l.id) + '">−</button><b>' + l.qte + '</b><button data-a="plus" data-v="' + esc(l.id) + '">+</button></div>'
+  }).join('') || '<p style="color:var(--m)">Touche un produit pour l\'ajouter.</p>'
+  var total = totalPanier()
+  var org = S.catalogue.organismes.find(function (o) { return o.id === S.organisme })
+  var part = org ? total - Math.round(total * org.taux / 100) : total
+  return '<div class="wrap"><div class="caisse"><div><input id="rech" placeholder="Rechercher un médicament…" value="' + esc(S.q) + '" autocomplete="off" style="margin-bottom:10px"><div class="tiles">' + tuiles + '</div></div>' +
+    '<div class="card" style="position:sticky;top:64px"><h3>Panier</h3>' + lignes + '<div class="tot"><span>Total</span><span>' + F(total) + '</span></div>' +
+    '<div class="modes">' + Object.keys(MODES).map(function (k) { return '<button data-a="mode" data-v="' + k + '" class="' + (S.mode === k ? 'sel' : '') + '">' + MODES[k] + '</button>' }).join('') + '</div>' +
+    (S.mode === 'bon_sante' ? '<select id="org"><option value="">Organisme…</option>' + S.catalogue.organismes.map(function (o) { return '<option value="' + esc(o.id) + '"' + (o.id === S.organisme ? ' selected' : '') + '>' + esc(o.nom) + ' (' + o.taux + ' %)</option>' }).join('') + '</select><p>Part du patient : <b>' + F(part) + '</b></p>' : '') +
+    (MOBILE.indexOf(S.mode) >= 0 ? '<p style="color:var(--o)">Le paiement sera marqué « à confirmer » jusqu\'à vérification par le titulaire.</p>' : '') +
+    '<button class="p" data-a="valider" style="width:100%;font-size:18px" ' + (S.panier.length ? '' : 'disabled') + '>Valider la vente</button>' +
+    (S.panier.length ? '<button data-a="vider" style="width:100%;margin-top:8px">Vider le panier</button>' : '') + '</div></div></div>'
+}
+function carte(titre, corps) { return '<div class="card"><h3>' + titre + '</h3>' + corps + '</div>' }
+function table(cols, rows) {
+  return '<table><tr>' + cols.map(function (c) { return '<th class="' + (c[1] || '') + '">' + c[0] + '</th>' }).join('') + '</tr>' + (rows.length ? rows.join('') : '<tr><td colspan="' + cols.length + '" style="color:var(--m)">Rien à afficher</td></tr>') + '</table>'
+}
+function vueTableau() {
+  var r = S.data.rapport, a = S.data.alertes
+  if (!r) return '<div class="wrap">Chargement…</div>'
+  var sync = S.etat && S.etat.mode === 'cloud' && S.etat.derniere_sync ? '<p style="color:var(--m)">Dernière mise à jour de l\'officine : ' + new Date(S.etat.derniere_sync).toLocaleString('fr-FR') + '</p>' : ''
+  return '<div class="wrap"><div class="row" style="margin-bottom:12px"><div><label>Jour</label><input type="date" id="jour" value="' + S.date + '"></div></div>' + sync +
+    '<div class="grid kpis" style="margin-bottom:12px">' +
+    [[F(r.chiffre_affaires), 'Chiffre d\'affaires'], [r.nb_ventes, 'Ventes'], [F(r.part_patients), 'Encaissé patients'], [F(r.part_organismes), 'À facturer aux organismes'], [r.hors_ligne, 'Ventes faites hors ligne']].map(function (k) { return '<div class="card kpi"><b>' + k[0] + '</b><span>' + k[1] + '</span></div>' }).join('') + '</div>' +
+    '<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(320px,1fr))">' +
+    carte('Par mode de paiement', table([['Mode'], ['Ventes', 'r'], ['Montant', 'r'], ['À confirmer', 'r']], r.par_mode.map(function (m) { return '<tr><td>' + MODES[m.mode] + '</td><td class="r">' + m.nb + '</td><td class="r">' + F(m.montant) + '</td><td class="r ' + (m.a_confirmer ? 'warn' : '') + '">' + (m.a_confirmer ? F(m.a_confirmer) : '–') + '</td></tr>' }))) +
+    carte('Par vendeuse (caisse)', table([['Vendeuse'], ['Ventes', 'r'], ['CA', 'r']], r.par_vendeur.map(function (m) { return '<tr><td>' + esc(m.user_nom) + '</td><td class="r">' + m.nb + '</td><td class="r">' + F(m.ca) + '</td></tr>' }))) +
+    carte('Produits les plus vendus', table([['Produit'], ['Qté', 'r'], ['CA', 'r']], r.top_produits.map(function (m) { return '<tr><td>' + esc(m.nom) + '</td><td class="r">' + m.qte + '</td><td class="r">' + F(m.ca) + '</td></tr>' }))) +
+    (a ? carte('Alertes stock', '<p><span class="bad">' + a.ruptures.length + ' ruptures</span> · <span class="warn">' + a.stock_bas.length + ' stocks bas</span> · <span class="warn">' + a.peremption_proche.length + ' péremptions &lt; 90 j</span> · <span class="bad">' + a.perimes.length + ' périmés</span></p>' + (a.a_regulariser ? '<p class="warn">' + a.a_regulariser + ' sortie(s) de stock à régulariser (ventes hors ligne)</p>' : '')) : '') +
+    '</div></div>'
+}
+function vueStock() {
+  var a = S.data.alertes, st = S.data.stock, cloud = S.etat && S.etat.mode === 'cloud'
+  if (!a || !st) return '<div class="wrap">Chargement…</div>'
+  var opts = st.map(function (p) { return '<option value="' + esc(p.id) + '">' + esc(p.nom) + '</option>' }).join('')
+  var formes = cloud ? '' : carte('Réception d\'un lot', '<div class="row"><div><label>Produit</label><select id="r_prod">' + opts + '</select></div><div><label>N° de lot</label><input id="r_num"></div><div><label>Péremption (AAAA-MM)</label><input id="r_per" placeholder="2027-06"></div><div><label>Quantité</label><input id="r_qte" type="number" min="1" inputmode="numeric"></div><button class="p" data-a="reception">Enregistrer</button></div>') +
+    carte('Nouveau produit', '<div class="row"><div><label>Nom</label><input id="n_nom"></div><div><label>Prix (F)</label><input id="n_prix" type="number" min="0" inputmode="numeric"></div><div><label>Seuil d\'alerte</label><input id="n_seuil" type="number" min="0" inputmode="numeric" value="5"></div><button class="p" data-a="produit">Ajouter</button></div>')
+  return '<div class="wrap"><div class="err">' + esc(S.err) + '</div>' + formes +
+    '<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(340px,1fr))">' +
+    carte('Ruptures et stock bas', table([['Produit'], ['Stock', 'r'], ['À commander', 'r']], a.ruptures.map(function (p) { return '<tr><td class="bad">' + esc(p.nom) + '</td><td class="r">0</td><td class="r">' + p.a_commander + '</td></tr>' }).concat(a.stock_bas.map(function (p) { return '<tr><td class="warn">' + esc(p.nom) + '</td><td class="r">' + p.stock + '</td><td class="r">' + p.a_commander + '</td></tr>' })))) +
+    carte('Péremptions', table([['Produit'], ['Lot'], ['Date'], ['Qté', 'r']], a.perimes.map(function (l) { return '<tr><td class="bad">' + esc(l.nom) + '</td><td>' + esc(l.numero) + '</td><td class="bad">' + l.peremption + ' (périmé)</td><td class="r">' + l.qte + '</td></tr>' }).concat(a.peremption_proche.map(function (l) { return '<tr><td>' + esc(l.nom) + '</td><td>' + esc(l.numero) + '</td><td class="warn">' + l.peremption + '</td><td class="r">' + l.qte + '</td></tr>' })))) + '</div>' +
+    carte('Inventaire', table([['Produit'], ['Prix', 'r'], ['Stock', 'r'], ['Lots (péremption : qté)']], st.map(function (p) { return '<tr><td>' + esc(p.nom) + '</td><td class="r">' + F(p.prix) + '</td><td class="r ' + (p.stock <= 0 ? 'bad' : p.stock <= p.seuil ? 'warn' : '') + '">' + p.stock + '</td><td>' + p.lots.map(function (l) { return esc(l.numero) + ' (' + l.peremption + ' : ' + l.qte + ')' }).join(' · ') + '</td></tr>' }))) + '</div>'
+}
+function vueVentes() {
+  var vs = S.data.ventes; if (!vs) return '<div class="wrap">Chargement…</div>'
+  var t = S.user.role === 'titulaire' && !(S.etat && S.etat.mode === 'cloud')
+  return '<div class="wrap">' + (S.user.role === 'titulaire' ? '<div class="row" style="margin-bottom:12px"><div><label>Jour</label><input type="date" id="jour" value="' + S.date + '"></div></div>' : '<h3>Mes ventes du jour</h3>') +
+    '<div class="err">' + esc(S.err) + '</div>' +
+    carte('Ventes', table([['N°'], ['Heure'], ['Vendeuse'], ['Articles'], ['Paiement'], ['Total', 'r'], ['']], vs.map(function (v) {
+      var etat = v.statut === 'annulee' ? '<span class="bad">annulée</span>' : (v.paiement_statut === 'a_confirmer' ? '<span class="warn">à confirmer</span>' : '')
+      return '<tr><td>' + esc(v.numero) + (v.hors_ligne ? ' <small>(hors ligne)</small>' : '') + '</td><td>' + v.created_at.slice(11, 16) + '</td><td>' + esc(v.user_nom) + '</td><td>' + v.lignes.map(function (l) { return esc(l.nom) + ' ×' + l.qte }).join(', ') + '</td><td>' + MODES[v.mode] + (v.organisme ? ' ' + esc(v.organisme) : '') + ' ' + etat + '</td><td class="r">' + F(v.part_patient) + (v.taux_prise_charge ? '<br><small>total ' + F(v.total) + '</small>' : '') + '</td><td>' +
+        (t && v.statut === 'valide' ? (v.paiement_statut === 'a_confirmer' ? '<button class="p" data-a="confirmer" data-v="' + esc(v.id) + '">Confirmer</button> ' : '') + '<button class="d" data-a="annuler" data-v="' + esc(v.id) + '">Annuler</button>' : '') + '</td></tr>'
+    }))) + '</div>'
+}
+function vueEquipe() {
+  var l = S.data.equipe; if (!l) return '<div class="wrap">Chargement…</div>'
+  var cloud = S.etat && S.etat.mode === 'cloud'
+  return '<div class="wrap">' + (cloud ? '' : carte('Nouvelle vendeuse', '<div class="row"><div><label>Nom</label><input id="u_nom"></div><div><label>PIN (4 à 6 chiffres)</label><input id="u_pin" inputmode="numeric" maxlength="6" type="password"></div><button class="p" data-a="user">Ajouter</button></div>')) +
+    '<div class="err">' + esc(S.err) + '</div>' + carte('Équipe', table([['Nom'], ['Rôle'], ['']], l.map(function (u) { return '<tr><td>' + esc(u.nom) + '</td><td>' + u.role + (u.actif ? '' : ' (désactivé)') + '</td><td>' + (u.role === 'vendeur' && u.actif && !cloud ? '<button class="d" data-a="desactiver" data-v="' + esc(u.id) + '">Désactiver</button>' : '') + '</td></tr>' }))) + '</div>'
+}
+function vueBons() {
+  var l = S.data.organismes; if (!l) return '<div class="wrap">Chargement…</div>'
+  var cloud = S.etat && S.etat.mode === 'cloud'
+  return '<div class="wrap"><p style="color:var(--m)">Ce sont les organismes que ta pharmacie accepte déjà. Tu fixes le taux de prise en charge ; le logiciel ne l\'impose pas.</p>' +
+    (cloud ? '' : carte('Ajouter un organisme', '<div class="row"><div><label>Nom</label><input id="o_nom"></div><div><label>Prise en charge (%)</label><input id="o_taux" type="number" min="0" max="100" inputmode="numeric"></div><button class="p" data-a="organisme">Ajouter</button></div>')) +
+    '<div class="err">' + esc(S.err) + '</div>' + carte('Organismes', table([['Nom'], ['Taux', 'r']], l.map(function (o) { return '<tr><td>' + esc(o.nom) + '</td><td class="r">' + o.taux + ' %</td></tr>' }))) + '</div>'
+}
+function vueJournal() {
+  var l = S.data.audit; if (!l) return '<div class="wrap">Chargement…</div>'
+  return '<div class="wrap">' + carte('Journal d\'audit (200 derniers)', table([['Date'], ['Qui'], ['Action'], ['Détail']], l.map(function (a) { return '<tr><td>' + a.created_at.slice(0, 16).replace('T', ' ') + '</td><td>' + esc(a.user_nom || '') + '</td><td>' + esc(a.action) + '</td><td>' + esc(a.detail || '') + '</td></tr>' }))) + '</div>'
+}
+
+function rendre() {
+  var focus = document.activeElement && document.activeElement.id, pos = document.activeElement && document.activeElement.selectionStart
+  var h
+  if (S.vue === 'setup') h = vueSetup()
+  else if (S.vue === 'login') h = vueLogin()
+  else {
+    var corps = { caisse: vueCaisse, tableau: vueTableau, stock: vueStock, ventes: vueVentes, equipe: vueEquipe, bons: vueBons, journal: vueJournal }[S.onglet]()
+    h = entete() + corps
+  }
+  $('#app').innerHTML = h
+  majStatut()
+  if (focus && $('#' + focus)) { var el = $('#' + focus); el.focus(); try { if (pos != null) el.setSelectionRange(pos, pos) } catch (e) {} }
+}
+
+// ───────── Actions ─────────
+var val = function (id) { var e = $('#' + id); return e ? e.value.trim() : '' }
+function action(fn) { S.err = ''; return fn().then(function () { return null }, function (e) { S.err = e.message; rendre() }) }
+var ACTIONS = {
+  installer: function () { action(function () { return api('/api/installation', { body: { officine: val('s_off'), nom: val('s_nom'), email: val('s_mail'), mdp: $('#s_mdp').value } }).then(function (r) { S.secret = r; rendre() }) }) },
+  fini: function () { S.secret = null; S.vue = 'login'; S.loginTab = 'titulaire'; api('/api/etat').then(function (e) { S.etat = e; rendre() }) },
+  tab: function (v) { S.loginTab = v; S.err = ''; S.choisi = null; S.pin = ''; rendre() },
+  login: function () { action(function () { return api('/api/login', { body: { email: val('l_mail'), mdp: $('#l_mdp').value, code: val('l_code') } }).then(ouvrirSession) }) },
+  choisir: function (v, el) { S.choisi = { id: v, nom: el.dataset.n }; S.pin = ''; S.err = ''; rendre() },
+  retour: function () { S.choisi = null; S.pin = ''; S.err = ''; rendre() },
+  touche: function (k) {
+    if (k === 'C') S.pin = ''
+    else if (k === 'OK') { action(function () { return api('/api/pin', { body: { user_id: S.choisi.id, pin: S.pin } }).then(ouvrirSession) }).then(function () { S.pin = ''; rendre() }); return }
+    else if (S.pin.length < 6) S.pin += k
+    rendre()
+  },
+  sortir: function () { deconnecter() },
+  onglet: function (v) { S.onglet = v; S.err = ''; rendre(); chargerOnglet() },
+  ajouter: function (v) { ajouter(v) },
+  plus: function (v) { var l = S.panier.find(function (x) { return x.id === v }); if (l) l.qte++; rendre() },
+  moins: function (v) { var l = S.panier.find(function (x) { return x.id === v }); if (l) l.qte--; S.panier = S.panier.filter(function (x) { return x.qte > 0 }); rendre() },
+  vider: function () { S.panier = []; rendre() },
+  mode: function (v) { S.mode = v; rendre() },
+  valider: function () { valider() },
+  reception: function () { action(function () { return api('/api/reception', { body: { produit_id: val('r_prod'), numero: val('r_num'), peremption: val('r_per'), qte: Number(val('r_qte')) } }).then(function () { toast('Lot enregistré'); chargerOnglet() }) }) },
+  produit: function () { action(function () { return api('/api/produits', { body: { nom: val('n_nom'), prix: Number(val('n_prix')), seuil: Number(val('n_seuil')) } }).then(function () { toast('Produit ajouté'); chargerOnglet() }) }) },
+  confirmer: function (v) { action(function () { return api('/api/ventes/' + v + '/confirmer', { body: {} }).then(chargerOnglet) }) },
+  annuler: function (v) { if (confirm('Annuler cette vente ? Le stock sera remis.')) action(function () { return api('/api/ventes/' + v + '/annuler', { body: {} }).then(chargerOnglet) }) },
+  user: function () { action(function () { return api('/api/utilisateurs', { body: { nom: val('u_nom'), pin: val('u_pin') } }).then(function () { toast('Vendeuse ajoutée'); chargerOnglet() }) }) },
+  desactiver: function (v) { if (confirm('Désactiver cette vendeuse ?')) action(function () { return api('/api/utilisateurs/' + v + '/desactiver', { body: {} }).then(chargerOnglet) }) },
+  organisme: function () { action(function () { return api('/api/organismes', { body: { nom: val('o_nom'), taux: Number(val('o_taux')) } }).then(function () { toast('Organisme ajouté'); chargerOnglet() }) }) }
+}
+document.addEventListener('click', function (e) {
+  var el = e.target.closest('[data-a]'); if (!el) return
+  var f = ACTIONS[el.dataset.a]; if (f) f(el.dataset.v, el)
+})
+document.addEventListener('input', function (e) {
+  if (e.target.id === 'rech') { S.q = e.target.value; rendre() }
+})
+document.addEventListener('change', function (e) {
+  if (e.target.id === 'org') { S.organisme = e.target.value; rendre() }
+  if (e.target.id === 'jour') { S.date = e.target.value; chargerOnglet() }
+})
+document.addEventListener('keydown', function (e) {
+  if (e.key === 'Enter' && S.vue === 'login' && (S.loginTab === 'titulaire' || (S.etat && S.etat.mode === 'cloud'))) ACTIONS.login()
+})
+
+if ('serviceWorker' in navigator && window.isSecureContext) navigator.serviceWorker.register('/sw.js').catch(function () {})
+demarrer()
+</script>
+</body>
+</html>
