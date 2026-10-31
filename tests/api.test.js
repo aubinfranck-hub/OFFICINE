@@ -25,9 +25,9 @@ const ok = async (nom, fn) => { await fn(); console.log('  ok', ++n, nom) }
 const ancien = creerServeur({ fichier: ANCIENNE, mode: 'local' })
 await new Promise((r) => ancien.listen(0, '127.0.0.1', r))
 const A = `http://127.0.0.1:${ancien.address().port}`
-await ok('migration v1 → v2 : titulaire, ventes et paiement conservés', async () => {
+await ok('migration v1 → v3 : titulaire, ventes et paiement conservés', async () => {
   const etat = await (await fetch(A + '/api/etat')).json()
-  assert.equal(etat.installe, true); assert.equal(etat.version, 2)
+  assert.equal(etat.installe, true); assert.equal(etat.version, 3)
   ancien.close()
   const d = new DatabaseSync(ANCIENNE)
   assert.equal(d.prepare("SELECT COUNT(*) c FROM paiements WHERE vente_id='v1' AND mode='wave' AND montant=1000").get().c, 1)
@@ -299,6 +299,63 @@ await ok('cloud vidé (hébergement temporaire) : tout est renvoyé automatiquem
   const l2 = await api(C2, 'POST', '/api/login', { email: 'd@t.ci', mdp: 'mot-de-passe-cloud-1', code: code(i.totp_secret) })
   assert.equal((await api(C2, 'GET', `/api/stats?du=${aujourdhui}&au=${aujourdhui}`, null, l2.token)).ca, st.ca + 600)
   nuage2.close()
+})
+
+// ───────── Tiers payant par assureur, exports, sauvegardes (v3) ─────────
+const gel = (await prod({ code: '900', nom: 'Gel hydro-alcoolique', famille: 'Parapharmacie', prix: 1200, prix_achat: 600, remboursable: 0 })).id
+await api(L, 'POST', '/api/receptions', { fournisseur_id: four, lignes: [{ produit_id: gel, numero: 'GEL1', peremption: dans(20), qte: 10, prix_achat: 600 }] }, T)
+const assur = (await api(L, 'POST', '/api/organismes', { nom: 'Assurance Plafonnée', taux: 100, plafond: 1000, adherent_obligatoire: 1, delai_paiement: 10 }, T)).id
+await ok('les organismes gardent plafond, adhérent obligatoire et délai de paiement', async () => {
+  const o = (await api(L, 'GET', '/api/organismes', null, T)).find((x) => x.id === assur)
+  assert.equal(o.plafond, 1000); assert.equal(o.adherent_obligatoire, 1); assert.equal(o.delai_paiement, 10)
+})
+await ok('n° d\'adhérent obligatoire pour cet assureur', async () => {
+  const r = await vente({ id: 'a-1', organisme_id: assur, lignes: [{ produit_id: para, qte: 2 }], paiements: [{ mode: 'especes', montant: 1200 }] })
+  assert.equal(r.code, 400); assert.match(r.erreur, /adhérent/)
+})
+await ok('plafond et produit non remboursable : part assureur calculée sur les seuls produits remboursables', async () => {
+  // 2 × 600 remboursables + 1 gel de 1 200 non remboursable = 2 400 ; 100 % de 1 200 = 1 200, plafonné à 1 000
+  const r = await vente({ id: 'a-2', organisme_id: assur, num_adherent: 'AS-77', lignes: [{ produit_id: para, qte: 2 }, { produit_id: gel, qte: 1 }], paiements: [{ mode: 'especes', montant: 1400 }] })
+  assert.equal(r.code, 200); assert.equal(r.total, 2400); assert.equal(r.part_organisme, 1000); assert.equal(r.part_patient, 1400)
+})
+await ok('sans plafond, un produit non remboursable reste à la charge du patient', async () => {
+  const r = await vente({ id: 'a-3', organisme_id: org, num_adherent: 'MG-9', lignes: [{ produit_id: para, qte: 1 }, { produit_id: gel, qte: 1 }], paiements: [{ mode: 'especes', montant: 600 * 0.2 + 1200 }] })
+  assert.equal(r.part_organisme, 480); assert.equal(r.part_patient, 120 + 1200)
+})
+await ok('bordereau par assureur : échéance = date + délai de paiement, relevé de l\'assureur', async () => {
+  const b = await api(L, 'POST', '/api/bordereaux', { organisme_id: assur }, PH)
+  assert.equal(b.total, 1000)
+  const attendue = new Date(Date.now() + 10 * 86400000).toISOString().slice(0, 10)
+  const d = await api(L, 'GET', `/api/bordereaux/${b.id}`, null, PH)
+  assert.equal(d.echeance, attendue)
+  const rel = await api(L, 'GET', `/api/tiers-payant/releve?organisme_id=${assur}`, null, PH)
+  assert.equal(rel.total_du, 1000); assert.equal(rel.total_echu, 0); assert.equal(rel.a_facturer.nb, 0); assert.equal(rel.organisme.delai_paiement, 10)
+  assert.equal((await api(L, 'GET', `/api/tiers-payant/releve?organisme_id=${assur}`, null, V)).code, 403)
+})
+const brut = async (base, p, token) => { const r = await fetch(base + p, { headers: { authorization: 'Bearer ' + token } }); const buf = Buffer.from(await r.arrayBuffer()); return { code: r.status, type: r.headers.get('content-type'), disp: r.headers.get('content-disposition'), bom: buf.subarray(0, 3).equals(Buffer.from([0xef, 0xbb, 0xbf])), texte: buf.toString('utf8').replace(/^\ufeff/, '') } }
+await ok('export Excel des ventes : CSV avec séparateur « ; », accents et marge', async () => {
+  const r = await brut(L, `/api/export/ventes?du=${aujourdhui}&au=${aujourdhui}`, T)
+  assert.equal(r.code, 200); assert.match(r.type, /text\/csv/); assert.match(r.disp, /ventes-/)
+  assert.ok(r.bom && r.texte.startsWith('Date;Heure;N°;Type'))
+  assert.ok(r.texte.includes('Marge ligne')); assert.ok(r.texte.split('\r\n').length > 10)
+  assert.equal((await brut(L, `/api/export/ventes?du=${aujourdhui}&au=${aujourdhui}`, PR)).code, 403)
+  assert.ok((await brut(L, `/api/export/ventes?du=${aujourdhui}&au=${aujourdhui}`, PH)).texte.includes('Marge ligne'))
+})
+await ok('export du stock et du catalogue (mêmes colonnes que l\'import)', async () => {
+  const s = await brut(L, '/api/export/stock', T); assert.ok(s.texte.includes('Gel hydro-alcoolique'))
+  const c = await brut(L, '/api/export/produits', T)
+  assert.ok(c.bom && c.texte.startsWith('code;nom;dci;dosage;forme;famille;labo;prix;prix_achat;seuil;stock_max;emplacement;ordonnance;stupefiant;generique;remboursable'))
+  assert.ok(/Gel hydro-alcoolique;;;;Parapharmacie;;1200;600;5;0;;non;non;non;non/.test(c.texte))
+  assert.equal((await brut(L, '/api/export/produits', V)).code, 403)
+})
+await ok('sauvegarde de la base : fichier créé, listé, 14 gardées', async () => {
+  const r = await api(L, 'POST', '/api/sauvegardes/maintenant', null, T)
+  assert.match(r.nom, /^lgo-\d{4}-\d{2}-\d{2}-\d{2}h\d{2}\.db$/)
+  const l = await api(L, 'GET', '/api/sauvegardes', null, T)
+  assert.ok(l.fichiers.some((f) => f.nom === r.nom && f.taille > 10000)); assert.equal(l.gardees, 14)
+  const copie = new DatabaseSync(`${l.dossier}/${r.nom}`)
+  assert.ok(copie.prepare('SELECT COUNT(*) c FROM ventes').get().c > 10); copie.close()
+  assert.equal((await api(L, 'POST', '/api/sauvegardes/maintenant', null, PH)).code, 403)
 })
 
 console.log(`\n${n} vérifications réussies`)

@@ -28,7 +28,7 @@ for (const [nom, tel, delai] of [['Grossiste Répartiteur A', '+225 27 00 00 01'
 }
 const [fA, fB, fC] = Object.values(fournisseurs)
 const organismes = {}
-for (const [nom, taux] of [['MUGEFCI', 80], ['Assurance démo', 70], ['Mutuelle entreprise', 90]]) { const id = uuid(); organismes[nom] = id; run('INSERT INTO organismes (id,nom,taux) VALUES (?,?,?)', id, nom, taux) }
+for (const [nom, taux, plafond, adh, delai] of [['MUGEFCI', 80, 0, 1, 30], ['Assurance démo', 70, 50000, 0, 45], ['Mutuelle entreprise', 90, 0, 1, 15]]) { const id = uuid(); organismes[nom] = id; run('INSERT INTO organismes (id,nom,taux,plafond,adherent_obligatoire,delai_paiement) VALUES (?,?,?,?,?,?)', id, nom, taux, plafond, adh, delai) }
 
 const dans = (mois) => { const d = new Date(); d.setUTCMonth(d.getUTCMonth() + mois); return d.toISOString().slice(0, 10) }
 // [code, nom, dci, dosage, forme, famille, labo, prix vente, prix achat, seuil, max, emplacement, ordonnance, stupéfiant, générique, fournisseur, lots[[n°, mois, qté]]]
@@ -76,6 +76,7 @@ for (const [code, nom, dci, dosage, forme, famille, labo, prix, pa, seuil, max, 
   const id = uuid()
   run('INSERT INTO produits (id,code,nom,dci,dosage,forme,famille,labo,prix,prix_achat,seuil,stock_max,emplacement,ordonnance,stupefiant,generique,fournisseur_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
     id, code, nom, dci || null, dosage || null, forme, famille, labo, prix, pa, seuil, max, empl, ordo, stup, gen, four)
+  if (famille === 'Parapharmacie') run('UPDATE produits SET remboursable=0 WHERE id=?', id)
   const ls = lots.map(([n, mois, q]) => { const lid = uuid(); run('INSERT INTO lots (id,produit_id,numero,peremption,qte,prix_achat) VALUES (?,?,?,?,?,?)', lid, id, n, dans(mois), q, pa); return { id: lid, qte: q } })
   produits.push({ id, nom, prix, pa, ls, stup, poids: 0.2 + alea() * 2 })
 }

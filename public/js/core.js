@@ -93,7 +93,7 @@ function onglets(vue, liste) {
 function tabCourant(vue, defaut) { return S.tab[vue] || defaut }
 ACT.tab = function (v) { var p = v.split(':'); S.tab[p[0]] = p[1]; rendre(); chargerVue() }
 function stk(n, seuil) { return '<span class="stk' + (n <= 0 ? ' zero' : n <= (seuil || 0) ? ' bas' : '') + '">' + n + '</span>' }
-function tags(p) { return (p.ordonnance ? '<span class="tag rx">Rx</span>' : '') + (p.stupefiant ? '<span class="tag st">STUP</span>' : '') + (p.generique ? '<span class="tag gen">G</span>' : '') }
+function tags(p) { return (p.remboursable === 0 ? '<span class="tag" style="background:#eee;color:#666" title="Non remboursable par les organismes">NR</span>' : '') + (p.ordonnance ? '<span class="tag rx">Rx</span>' : '') + (p.stupefiant ? '<span class="tag st">STUP</span>' : '') + (p.generique ? '<span class="tag gen">G</span>' : '') }
 function barres(lignes, cleNom, cleVal, fmt) {
   var max = Math.max.apply(null, lignes.map(function (l) { return Math.abs(l[cleVal]) }).concat([1]))
   return '<div class="barres">' + lignes.map(function (l) { return '<div class="bl"><span title="' + esc(l[cleNom]) + '" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(MODES[l[cleNom]] || l[cleNom]) + '</span><div class="rail"><i style="width:' + Math.max(2, Math.abs(l[cleVal]) / max * 100) + '%"></i></div><b class="r">' + (fmt ? fmt(l[cleVal]) : F(l[cleVal])) + '</b></div>' }).join('') + '</div>'
@@ -117,6 +117,14 @@ function graphique(serie) {
   })
   if (pts.length > 1) out += '<polyline fill="none" stroke="#f59e0b" stroke-width="2.5" stroke-linejoin="round" points="' + pts.join(' ') + '"/>'
   return out + '</svg>'
+}
+function telecharger(url, nom) {
+  var h = {}; if (S.token) h.authorization = 'Bearer ' + S.token
+  return fetch(url, { headers: h }).then(function (r) {
+    if (!r.ok) return r.json().then(function (j) { throw new Error(j.erreur || 'Erreur ' + r.status) })
+    var cd = r.headers.get('content-disposition') || '', m = /filename="([^"]+)"/.exec(cd)
+    return r.blob().then(function (b) { var a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = m ? m[1] : nom; document.body.appendChild(a); a.click(); a.remove(); toast('Fichier téléchargé : ' + a.download) })
+  }).catch(function (e) { toast(e.message === 'Failed to fetch' ? 'Serveur injoignable' : e.message) })
 }
 function imprimer(html) { $('#impression').innerHTML = html; setTimeout(function () { window.print() }, 80) }
 

@@ -29,7 +29,7 @@ export function routesComptoir(ctx) {
       if (p.organisme_id && !org) throw new Erreur(400, 'Organisme introuvable')
 
       const lignes = [], manques = [], stup = []
-      let total = 0
+      let total = 0, totalRemb = 0
       for (const l of p.lignes) {
         const qte = entier(l?.qte, 'Quantité', { min: 1, max: 10000 })
         const prod = get('SELECT * FROM produits WHERE id=? AND actif=1', String(l?.produit_id ?? ''))
@@ -48,6 +48,7 @@ export function routesComptoir(ctx) {
         }
         if (prod.stupefiant && !stup.includes(prod)) stup.push(prod)
         total += qte * prod.prix
+        if (prod.remboursable) totalRemb += qte * prod.prix
       }
 
       const patient = texte(p.patient_nom, 'Patient', { max: 120 }) || client?.nom || null
@@ -59,7 +60,15 @@ export function routesComptoir(ctx) {
       if (remise > 0 && !peut(user, 'remise')) throw new Erreur(403, 'Tu n\'as pas le droit de faire une remise')
       const net = total - remise
       const taux = org ? org.taux : 0
-      const partOrg = Math.round((net * taux) / 100)
+      const adherent = texte(p.num_adherent, 'N° adhérent', { max: 60 }) || client?.num_adherent || null
+      let partOrg = 0
+      if (org) {
+        if (org.adherent_obligatoire && !adherent) throw new Erreur(400, `${org.nom} : le n° d'adhérent est obligatoire`)
+        // La remise est répartie au prorata ; seuls les produits remboursables sont pris en charge
+        const baseRemb = total > 0 ? Math.round((totalRemb * net) / total) : 0
+        partOrg = Math.round((baseRemb * taux) / 100)
+        if (org.plafond > 0) partOrg = Math.min(partOrg, org.plafond)
+      }
       const partPatient = net - partOrg
 
       const paiements = (Array.isArray(p.paiements) ? p.paiements : []).map((x) => {
@@ -78,7 +87,7 @@ export function routesComptoir(ctx) {
             type,client_id,client_nom,prescripteur,num_ordonnance,num_adherent,organisme_id,remise,part_organisme,credit,session_id)
            VALUES (?,?,?,?,?,?,?,?,?,?,?,?, 'vente',?,?,?,?,?,?,?,?,?,?)`,
         p.id, numero, user.id, user.nom, total, mode, org?.nom ?? null, taux, partPatient, aConfirmer ? 'a_confirmer' : 'confirme', horsLigne ? 1 : 0, quand,
-        client?.id ?? null, patient, prescripteur, numOrdo, texte(p.num_adherent, 'N° adhérent', { max: 60 }) || client?.num_adherent || null,
+        client?.id ?? null, patient, prescripteur, numOrdo, adherent,
         org?.id ?? null, remise, partOrg, credit, sessionOuverte(user.id))
       for (const x of paiements) run('INSERT INTO paiements (id,vente_id,mode,montant,statut,created_at) VALUES (?,?,?,?,?,?)', uuid(), p.id, x.mode, x.montant, MODES_MOBILE.includes(x.mode) ? 'a_confirmer' : 'confirme', quand)
       for (const l of lignes) {
@@ -168,9 +177,9 @@ export function routesComptoir(ctx) {
   route('GET', '/api/catalogue', ({ user }) => {
     exiger(user)
     return {
-      produits: all(`SELECT p.id,p.code,p.nom,p.dci,p.dosage,p.forme,p.famille,p.prix,p.ordonnance,p.stupefiant,p.generique,p.emplacement,
+      produits: all(`SELECT p.id,p.code,p.nom,p.dci,p.dosage,p.forme,p.famille,p.prix,p.ordonnance,p.stupefiant,p.generique,p.remboursable,p.emplacement,
         COALESCE((SELECT SUM(qte) FROM lots l WHERE l.produit_id=p.id),0) stock FROM produits p WHERE p.actif=1 ORDER BY p.nom`),
-      organismes: all('SELECT id,nom,taux FROM organismes WHERE actif=1 ORDER BY nom'),
+      organismes: all('SELECT id,nom,taux,plafond,adherent_obligatoire FROM organismes WHERE actif=1 ORDER BY nom'),
       clients: all('SELECT id,nom,telephone,organisme_id,num_adherent,solde FROM clients WHERE actif=1 ORDER BY nom LIMIT 5000'),
       genere_le: maintenant()
     }

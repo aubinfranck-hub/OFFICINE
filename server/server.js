@@ -10,6 +10,7 @@ import { routesStock } from './routes-stock.js'
 import { routesAchats } from './routes-achats.js'
 import { routesPilotage } from './routes-pilotage.js'
 import { sync } from './sync.js'
+import { routesOutils } from './routes-outils.js'
 
 const ICI = path.dirname(fileURLToPath(import.meta.url))
 const PUBLIC = path.join(ICI, '..', 'public')
@@ -35,6 +36,7 @@ export function creerServeur({ fichier = process.env.DB || 'lgo.db', mode = proc
   routesStock(ctx)
   routesAchats(ctx)
   routesPilotage(ctx)
+  const outils = routesOutils(ctx)
   const synchro = sync(ctx)
 
   const serveur = http.createServer(async (req, res) => {
@@ -57,6 +59,10 @@ export function creerServeur({ fichier = process.env.DB || 'lgo.db', mode = proc
             try { body = morceaux.length ? JSON.parse(Buffer.concat(morceaux).toString()) : {} } catch { throw new Erreur(400, 'JSON invalide') }
           }
           const rep = await fn({ req, body, q: url.searchParams, params: mt.slice(1), user: utilisateurDe(req) })
+          if (rep && rep.__fichier) {
+            res.writeHead(200, { 'content-type': rep.type, 'content-disposition': `attachment; filename="${rep.nom}"`, 'cache-control': 'no-store', ...ENTETES })
+            return res.end(rep.contenu)
+          }
           return envoyer(200, rep)
         }
         throw new Erreur(404, 'Route inconnue')
@@ -72,8 +78,8 @@ export function creerServeur({ fichier = process.env.DB || 'lgo.db', mode = proc
       envoyer(500, { erreur: 'Erreur interne' })
     }
   })
-  serveur.on('listening', synchro.demarrer)
-  serveur.on('close', () => { synchro.arreter(); db.close() })
+  serveur.on('listening', () => { synchro.demarrer(); outils.demarrer() })
+  serveur.on('close', () => { synchro.arreter(); outils.arreter(); db.close() })
   serveur.pousser = synchro.pousser
   return serveur
 }

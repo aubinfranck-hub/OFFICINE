@@ -45,9 +45,10 @@ VUES.reglages = {
     if (t === 'equipe') return charge('utilisateurs', '/api/utilisateurs')
     if (t === 'officine') return charge('parametres', '/api/parametres')
     if (t === 'journal') return charge('audit', '/api/audit')
+    if (t === 'donnees') return charge('sauvegardes', '/api/sauvegardes')
   },
   html: function () {
-    var t = tabCourant('reglages', 'equipe'), h = onglets('reglages', [['equipe', '👥 Équipe'], ['officine', '🏪 Officine'], ['journal', '📜 Journal'], ['sync', '☁ Synchronisation']])
+    var t = tabCourant('reglages', 'equipe'), h = onglets('reglages', [['equipe', '👥 Équipe'], ['officine', '🏪 Officine'], ['donnees', '💾 Sauvegardes et exports'], ['journal', '📜 Journal'], ['sync', '☁ Synchronisation']])
     if (t === 'equipe') {
       var u = S.data.utilisateurs; if (!u) return h + '<p class="m">Chargement…</p>'
       return h + (cloud() ? '' : carte('Nouvel employé', '<div class="ligne-form">' + champ('Nom', 'u-nom') + champ('Rôle', 'u-role', { opts: [['vendeur', 'Vendeur(se) — comptoir et clients'], ['preparateur', 'Préparateur — + stock, achats, remises'], ['pharmacien', 'Pharmacien adjoint — + marges, stats, annulations']] }) + champ('PIN (4 à 6 chiffres)', 'u-pin', { type: 'password', max: 6 }) + '<button class="p" data-a="ajouterEmploye">Ajouter</button></div>')) +
@@ -57,6 +58,11 @@ VUES.reglages = {
     if (t === 'officine') {
       var p = S.data.parametres; if (!p) return h + '<p class="m">Chargement…</p>'
       return h + carte('Informations de l\'officine (imprimées sur les tickets)', '<div class="ligne-form">' + champ('Nom de l\'officine', 'pa-nom', { val: p.officine }) + champ('Téléphone', 'pa-tel', { val: p.telephone }) + '</div>' + champ('Adresse', 'pa-adr', { val: p.adresse }) + champ('Message en bas du ticket', 'pa-msg', { val: p.message_ticket }) + (cloud() ? '' : '<button class="p" data-a="sauverParametres" style="margin-top:12px">Enregistrer</button>'))
+    }
+    if (t === 'donnees') {
+      var sv = S.data.sauvegardes; if (!sv) return h + '<p class="m">Chargement…</p>'
+      return h + carte('Exports Excel', '<p class="m">Fichiers CSV qui s\'ouvrent directement dans Excel.</p><div class="ligne-form">' + champ('Du', 'ex-du', { type: 'date', val: ilya(29) }) + champ('Au', 'ex-au', { type: 'date', val: auj() }) + '<button data-a="exportVentesR">⬇ Ventes (par ligne)</button></div><div class="ligne-form" style="margin-top:10px"><button data-a="exportStockR">⬇ Stock actuel (par lot)</button><button data-a="exportCatalogueR">⬇ Catalogue produits</button></div>') +
+        (cloud() ? '' : carte('Sauvegardes de la base', '<p>Une copie de toute la base est faite <b>automatiquement chaque jour</b> (les ' + sv.gardees + ' dernières sont gardées) dans le dossier <span class="mono" style="padding:2px 6px">sauvegardes</span> à côté du logiciel.</p><button class="p" data-a="sauvegardeMaintenant">Sauvegarder maintenant</button>' + tableau([['Fichier'], ['Date'], ['Taille', 'r']], sv.fichiers.map(function (f) { return '<tr><td>' + esc(f.nom) + '</td><td>' + dt(f.date) + '</td><td class="r">' + Math.round(f.taille / 1024) + ' Ko</td></tr>' }), 'Aucune sauvegarde pour l\'instant') + '<p class="m">Pense aussi à copier ce dossier sur une clé USB de temps en temps : une sauvegarde sur le même PC ne protège pas si le PC tombe en panne.</p>'))
     }
     if (t === 'journal') {
       var a = S.data.audit; if (!a) return h + '<p class="m">Chargement…</p>'
@@ -75,4 +81,8 @@ ACT.sauverParametres = function () {
     S.etat.officine = val('pa-nom'); store.set('etat', S.etat); S.param = { adresse: val('pa-adr'), telephone: val('pa-tel'), message_ticket: val('pa-msg') }; store.set('param', S.param); toast('Informations enregistrées'); rendre()
   }, function (e) { toast(e.message) })
 }
+ACT.exportVentesR = function () { telecharger('/api/export/ventes?' + qs({ du: val('ex-du'), au: val('ex-au') }), 'ventes.csv') }
+ACT.exportStockR = function () { telecharger('/api/export/stock', 'stock.csv') }
+ACT.exportCatalogueR = function () { telecharger('/api/export/produits', 'catalogue.csv') }
+ACT.sauvegardeMaintenant = function () { api('/api/sauvegardes/maintenant', { body: {} }).then(function (r) { toast('Sauvegarde faite : ' + r.nom); chargerVue() }, function (e) { toast(e.message) }) }
 ACT.syncMaintenant = function () { api('/api/sync/maintenant', { body: {} }).then(function (r) { toast(r.ok ? 'Synchronisé (' + r.lignes + ' lignes)' : 'Synchronisation non configurée'); api('/api/etat').then(function (e) { S.etat = e; rendre() }) }, function (e) { toast(e.message) }) }

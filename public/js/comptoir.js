@@ -34,17 +34,22 @@ function produit(id) { return S.catalogue.produits.find(function (p) { return p.
 function orgActif() { return S.catalogue.organismes.find(function (o) { return o.id === C.organisme }) || null }
 function calc() {
   var total = C.lignes.reduce(function (s, l) { return s + l.prix * l.qte }, 0)
+  var totalRemb = C.lignes.reduce(function (s, l) { return s + (l.remb === 0 ? 0 : l.prix * l.qte) }, 0)
   var remise = Math.min(Math.max(0, C.remise || 0), total)
-  var net = total - remise, o = orgActif()
-  var partOrg = o ? Math.round(net * o.taux / 100) : 0
-  return { total: total, remise: remise, net: net, partOrg: partOrg, aPayer: net - partOrg, org: o }
+  var net = total - remise, o = orgActif(), partOrg = 0
+  if (o) {
+    // même règle que le serveur : seuls les produits remboursables, remise au prorata, puis plafond de l'assureur
+    partOrg = Math.round(Math.round(total > 0 ? totalRemb * net / total : 0) * o.taux / 100)
+    if (o.plafond > 0) partOrg = Math.min(partOrg, o.plafond)
+  }
+  return { total: total, remise: remise, net: net, partOrg: partOrg, aPayer: net - partOrg, org: o, nonRemb: total - totalRemb }
 }
 function ajouter(id) {
   var p = produit(id); if (!p) return
   var l = C.lignes.find(function (x) { return x.id === id })
   if (p.stock <= 0 && S.online) { toast('Rupture de stock : ' + p.nom); return }
   if (l) { if (S.online && l.qte >= p.stock) { toast('Stock disponible : ' + p.stock); return } l.qte++ }
-  else C.lignes.push({ id: id, nom: p.nom, prix: p.prix, qte: 1, stock: p.stock, stup: p.stupefiant, ordo: p.ordonnance })
+  else C.lignes.push({ id: id, nom: p.nom, prix: p.prix, qte: 1, stock: p.stock, stup: p.stupefiant, ordo: p.ordonnance, remb: p.remboursable === 0 ? 0 : 1 })
   rendre()
 }
 ACT.ajouter = function (v) { ajouter(v); var r = $('#rech'); if (r) r.focus() }
@@ -135,10 +140,10 @@ VUES.comptoir = {
     var rejet = S.rejets.length ? '<div class="alerte rouge">⚠ ' + S.rejets.length + ' vente(s) hors ligne refusée(s) par le serveur. <button class="s" data-a="aller" data-v="ventes">Voir</button></div>' : ''
     return rejet + '<div class="comptoir" style="height:calc(100vh - 128px)"><div class="gauche"><input id="rech" data-i="rech" value="' + esc(C.q) + '" placeholder="🔍  Nom, DCI ou code-barres…   (F2)" autocomplete="off" autofocus style="font-size:17px;min-height:50px"><div id="resultats" class="resultats">' + (chercher(C.q).map(ligneResultat).join('') || '<div class="c m" style="padding:30px">Aucun produit</div>') + '</div></div>' +
       '<div class="ticket-panneau"><div class="tete"><div style="display:flex;gap:8px;align-items:center"><button data-a="choisirClient" style="flex:1;text-align:left">' + (C.client ? '👤 <b>' + esc(C.client.nom) + '</b>' + (C.client.solde > 0 ? ' <span class="puce rouge">doit ' + F(C.client.solde) + '</span>' : '') : '👤 Client / patient (facultatif)') + '</button>' +
-      '<button data-a="voirAttente" title="Ventes en attente">⏸ ' + (C.attente.length || '') + '</button></div><select data-c="org" style="margin-top:8px">' + orgs + '</select>' + (C.organisme ? '<input data-i="adh" value="' + esc(C.adherent) + '" placeholder="N° adhérent / bon de santé" style="margin-top:8px">' : '') + '</div>' +
+      '<button data-a="voirAttente" title="Ventes en attente">⏸ ' + (C.attente.length || '') + '</button></div><select data-c="org" style="margin-top:8px">' + orgs + '</select>' + (C.organisme ? '<input data-i="adh" value="' + esc(C.adherent) + '" placeholder="N° adhérent / bon de santé' + (orgActif() && orgActif().adherent_obligatoire ? ' (obligatoire)' : '') + '" style="margin-top:8px">' : '') + '</div>' +
       '<div class="corps">' + lignes + '</div><div class="pied"><div class="tot"><span class="m">Total</span><b>' + F(c.total) + '</b></div>' +
       (peut('remise') ? '<div class="tot" style="align-items:center"><span class="m">Remise (F)</span><input data-i="remise" inputmode="numeric" value="' + (C.remise || '') + '" style="width:110px;text-align:right;min-height:34px;padding:4px 8px"></div>' : '') +
-      (c.org ? '<div class="tot"><span class="m">Part ' + esc(c.org.nom) + ' (' + c.org.taux + ' %)</span><b id="tot-org">' + F(c.partOrg) + '</b></div>' : '') +
+      (c.org ? '<div class="tot"><span class="m">Part ' + esc(c.org.nom) + ' (' + c.org.taux + ' %' + (c.org.plafond > 0 ? ', plafond ' + N(c.org.plafond) : '') + ')</span><b id="tot-org">' + F(c.partOrg) + '</b></div>' + (c.nonRemb ? '<div class="tot"><span class="m">dont non remboursable</span><span class="warn">' + F(c.nonRemb) + '</span></div>' : '') : '') +
       '<div class="tot grand"><span>À payer</span><span id="tot-pay">' + F(c.aPayer) + '</span></div>' +
       '<button class="p" data-a="encaisser" style="width:100%;font-size:18px;min-height:54px;margin-top:10px"' + (C.lignes.length ? '' : ' disabled') + '>Encaisser  (F4)</button>' +
       '<div class="ligne-form" style="margin-top:8px"><button data-a="mettreAttente"' + (C.lignes.length ? '' : ' disabled') + '>⏸ Mettre en attente</button><button class="d" data-a="viderPanier"' + (C.lignes.length ? '' : ' disabled') + '>Vider</button></div></div></div></div>'
@@ -151,10 +156,11 @@ function stupDansPanier() { return C.lignes.some(function (l) { return l.stup })
 function ouvrirEncaissement() {
   if (!C.lignes.length) return
   var c = calc()
+  if (c.org && c.org.adherent_obligatoire && !String(C.adherent || '').trim()) { toast(c.org.nom + ' : saisis le n° d\'adhérent avant d\'encaisser'); return }
   P = []; RECU = 0
   ORD = { patient: C.client ? C.client.nom : '', prescripteur: '', numero: '' }
   var stup = stupDansPanier()
-  var corps = '<div class="grille kpis" style="margin-bottom:10px"><div class="kpi"><span>Total</span><b>' + F(c.total) + '</b></div>' + (c.remise ? '<div class="kpi"><span>Remise</span><b>' + F(c.remise) + '</b></div>' : '') + (c.org ? '<div class="kpi"><span>Part ' + esc(c.org.nom) + '</span><b>' + F(c.partOrg) + '</b></div>' : '') + '<div class="kpi"><span>À payer par le patient</span><b style="color:var(--v)">' + F(c.aPayer) + '</b></div></div>'
+  var corps = '<div class="grille kpis" style="margin-bottom:10px"><div class="kpi"><span>Total</span><b>' + F(c.total) + '</b></div>' + (c.remise ? '<div class="kpi"><span>Remise</span><b>' + F(c.remise) + '</b></div>' : '') + (c.org ? '<div class="kpi"><span>Part ' + esc(c.org.nom) + (c.org.plafond > 0 && c.partOrg >= c.org.plafond ? ' (plafond atteint)' : '') + '</span><b>' + F(c.partOrg) + '</b>' + (c.nonRemb ? '<small class="warn">' + F(c.nonRemb) + ' non remboursable</small>' : '') + '</div>' : '') + '<div class="kpi"><span>À payer par le patient</span><b style="color:var(--v)">' + F(c.aPayer) + '</b></div></div>'
   if (c.aPayer > 0) corps += '<h3>Mode de paiement</h3><div class="modes">' + ['especes', 'wave', 'orange', 'mtn', 'moov', 'cheque', 'credit'].map(function (m) { return '<button data-a="addPay" data-v="' + m + '">' + MODES[m] + '</button>' }).join('') + '</div><div id="pay-zone"></div>'
   else corps += '<p class="ok">Prise en charge complète : rien à encaisser auprès du patient.</p>'
   corps += '<details' + (stup ? ' open' : '') + ' style="margin-top:12px"><summary style="cursor:pointer;font-weight:600">' + (stup ? '⚠ Ordonnance (obligatoire : stupéfiant)' : 'Ordonnance (facultatif)') + '</summary><div class="ligne-form">' + champ('Patient', 'o-pat', { val: ORD.patient }) + champ('Prescripteur', 'o-pre') + champ('N° d\'ordonnance', 'o-num') + '</div></details>'
@@ -247,7 +253,7 @@ VUES.ventes = {
     var d = S.data.vq || { du: auj(), au: auj(), q: '' }, l = S.data.ventes
     var att = S.file.length ? '<div class="alerte">⏳ ' + S.file.length + ' vente(s) faite(s) hors ligne en attente d\'envoi au serveur.</div>' : ''
     var rej = S.rejets.length ? '<div class="carte"><h3 class="bad">Ventes refusées par le serveur (' + S.rejets.length + ')</h3>' + tableau([['Date'], ['Raison'], ['Articles'], ['']], S.rejets.map(function (r, i) { return '<tr><td>' + dt(r.date) + '</td><td>' + esc(r.motif) + '</td><td>' + r.vente.lignes.length + '</td><td><button class="s" data-a="supprRejet" data-v="' + i + '">Supprimer</button></td></tr>' }), '') + '<p class="m">Ces ventes n\'ont pas été enregistrées : vérifie le stock ou les produits concernés.</p></div>' : ''
-    var filtre = '<div class="carte"><div class="ligne-form">' + champ('Du', 'v-du', { type: 'date', val: d.du }) + champ('Au', 'v-au', { type: 'date', val: d.au }) + champ('N° ou client', 'v-q', { val: d.q }) + '<button class="p" data-a="filtrerVentes">Afficher</button></div></div>'
+    var filtre = '<div class="carte"><div class="ligne-form">' + champ('Du', 'v-du', { type: 'date', val: d.du }) + champ('Au', 'v-au', { type: 'date', val: d.au }) + champ('N° ou client', 'v-q', { val: d.q }) + '<button class="p" data-a="filtrerVentes">Afficher</button>' + (peut('stats') ? '<button data-a="exportVentes">⬇ Exporter (Excel)</button>' : '') + '</div></div>'
     if (!l) return att + rej + filtre + '<p class="m">Chargement…</p>'
     var lignes = l.map(function (v) {
       var etat = v.statut === 'annulee' ? '<span class="puce rouge">annulée</span>' : (v.paiement_statut === 'a_confirmer' ? '<span class="puce off">à confirmer</span>' : '') + (v.type === 'retour' ? '<span class="puce bleu">retour</span>' : '')
@@ -260,6 +266,7 @@ VUES.ventes = {
     return att + rej + filtre + carte(l.length + ' opération(s)', tableau([['N° / heure'], ['Client / vendeur'], ['Articles'], ['Paiement'], ['Net', 'r'], ['']], lignes, 'Aucune vente sur cette période'))
   }
 }
+ACT.exportVentes = function () { var d = S.data.vq || {}; telecharger('/api/export/ventes?' + qs({ du: d.du, au: d.au }), 'ventes.csv') }
 ACT.supprRejet = function (i) { S.rejets.splice(Number(i), 1); store.set('rejets', S.rejets); rendre() }
 ACT.filtrerVentes = function () { S.data.vq = { du: val('v-du'), au: val('v-au'), q: val('v-q') }; chargerVue() }
 ACT.ticketVente = function (id) {

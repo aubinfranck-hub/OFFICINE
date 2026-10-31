@@ -55,7 +55,7 @@ export function creerContexte({ fichier, mode, cleSync }) {
   const poser = (cle, val) => run('INSERT OR REPLACE INTO meta (k,v) VALUES (?,?)', cle, JSON.stringify(val))
 
   const ctx = {
-    db, get, all, run, tx, journal, exiger, exigerLocal, jour, entier, texte, param, poser,
+    db, fichier, get, all, run, tx, journal, exiger, exigerLocal, jour, entier, texte, param, poser,
     mode, cloud, cleSync, routes, uuid, maintenant, sha256, hacher, verifier, Erreur, peut,
     route: (m, re, fn) => routes.push([m, new RegExp(`^${re}$`), fn])
   }

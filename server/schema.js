@@ -109,7 +109,7 @@ const AJOUTS = {
 const colonnes = (db, t) => db.prepare(`PRAGMA table_info(${t})`).all().map((c) => c.name)
 const HORODATAGE = "strftime('%Y-%m-%dT%H:%M:%fZ','now')"
 
-export function migrer(db) {
+function migrerV2(db) {
   db.exec('CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT)')
   const version = Number(db.prepare("SELECT v FROM meta WHERE k='schema_version'").get()?.v ?? 0)
   if (version >= 2) return
@@ -159,4 +159,28 @@ export function migrer(db) {
   } finally {
     db.exec('PRAGMA foreign_keys=ON')
   }
+}
+
+// v3 : tiers payant par assureur (plafond, produits non remboursables, n° adhérent obligatoire, délai de paiement)
+function migrerV3(db) {
+  const version = Number(db.prepare("SELECT v FROM meta WHERE k='schema_version'").get()?.v ?? 0)
+  if (version >= 3) return
+  db.exec('BEGIN')
+  try {
+    const ajouter = (t, c, def) => { if (!colonnes(db, t).includes(c)) db.exec(`ALTER TABLE ${t} ADD COLUMN ${c} ${def}`) }
+    ajouter('organismes', 'plafond', 'INTEGER NOT NULL DEFAULT 0')
+    ajouter('organismes', 'adherent_obligatoire', 'INTEGER NOT NULL DEFAULT 0')
+    ajouter('organismes', 'delai_paiement', 'INTEGER NOT NULL DEFAULT 30')
+    ajouter('produits', 'remboursable', 'INTEGER NOT NULL DEFAULT 1')
+    ajouter('bordereaux', 'echeance', 'TEXT')
+    db.exec(`UPDATE bordereaux SET echeance = date(created_at,'+30 day') WHERE echeance IS NULL;
+      UPDATE produits SET remboursable = 0 WHERE lower(COALESCE(famille,'')) = 'parapharmacie';
+      INSERT OR REPLACE INTO meta (k,v) VALUES ('schema_version','3')`)
+    db.exec('COMMIT')
+  } catch (e) { db.exec('ROLLBACK'); throw e }
+}
+
+export function migrer(db) {
+  migrerV2(db)
+  migrerV3(db)
 }

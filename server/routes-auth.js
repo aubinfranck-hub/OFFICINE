@@ -35,7 +35,7 @@ export function routesAuth(ctx) {
     installe: !!get("SELECT 1 x FROM users WHERE role='titulaire'"), mode,
     officine: get("SELECT v FROM meta WHERE k='officine'")?.v ?? null,
     derniere_sync: get("SELECT v FROM meta WHERE k='derniere_sync'")?.v ?? null,
-    version: 2
+    version: 3
   }))
 
   route('POST', '/api/installation', ({ body, req }) => {

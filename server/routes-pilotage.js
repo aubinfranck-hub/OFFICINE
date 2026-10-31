@@ -5,18 +5,21 @@ export function routesPilotage(ctx) {
   const { get, all, run, tx, route, journal, exiger, exigerLocal, Erreur, uuid, maintenant, jour } = ctx
 
   // ───────── Organismes (assurances, mutuelles, bons de santé) : configurés par le pharmacien ─────────
-  route('GET', '/api/organismes', ({ user }) => { exiger(user, 'vente'); return all('SELECT id,nom,taux,actif FROM organismes ORDER BY actif DESC, nom') })
+  route('GET', '/api/organismes', ({ user }) => { exiger(user, 'vente'); return all('SELECT id,nom,taux,plafond,adherent_obligatoire,delai_paiement,actif FROM organismes ORDER BY actif DESC, nom') })
   route('POST', '/api/organismes', ({ user, body, req }) => {
     exigerLocal(); exiger(user, 'tierspayant')
     const nom = ctx.texte(body.nom, 'Nom', { requis: true, max: 80 })
     const taux = ctx.entier(body.taux, 'Taux de prise en charge', { max: 100 })
     const actif = body.actif === 0 || body.actif === false ? 0 : 1
+    const plafond = ctx.entier(body.plafond ?? 0, 'Plafond par vente')
+    const adh = body.adherent_obligatoire === 1 || body.adherent_obligatoire === true ? 1 : 0
+    const delai = ctx.entier(body.delai_paiement ?? 30, 'Délai de paiement (jours)', { max: 365 })
     if (body.id) {
-      if (!run('UPDATE organismes SET nom=?,taux=?,actif=? WHERE id=?', nom, taux, actif, String(body.id)).changes) throw new Erreur(404, 'Organisme introuvable')
+      if (!run('UPDATE organismes SET nom=?,taux=?,plafond=?,adherent_obligatoire=?,delai_paiement=?,actif=? WHERE id=?', nom, taux, plafond, adh, delai, actif, String(body.id)).changes) throw new Erreur(404, 'Organisme introuvable')
       return { id: body.id }
     }
     const id = uuid()
-    run('INSERT INTO organismes (id,nom,taux,actif) VALUES (?,?,?,?)', id, nom, taux, actif)
+    run('INSERT INTO organismes (id,nom,taux,plafond,adherent_obligatoire,delai_paiement,actif) VALUES (?,?,?,?,?,?,?)', id, nom, taux, plafond, adh, delai, actif)
     journal(user, 'organisme', `${nom} ${taux}%`, ipDe(req))
     return { id }
   })
@@ -27,7 +30,7 @@ export function routesPilotage(ctx) {
     return {
       a_facturer: all(`SELECT o.id organisme_id, o.nom, o.taux, COUNT(v.id) nb_ventes, COALESCE(SUM(v.part_organisme),0) montant, MIN(substr(v.created_at,1,10)) depuis
         FROM organismes o JOIN ventes v ON v.organisme_id=o.id AND v.statut='valide' AND v.bordereau_id IS NULL GROUP BY o.id HAVING nb_ventes>0 ORDER BY montant DESC`),
-      impayes: all("SELECT * FROM bordereaux WHERE statut='emis' ORDER BY created_at"),
+      impayes: all("SELECT *, CASE WHEN echeance < date('now') THEN 1 ELSE 0 END echu FROM bordereaux WHERE statut='emis' ORDER BY created_at"),
       encaisse_30j: get("SELECT COALESCE(SUM(total),0) m FROM bordereaux WHERE statut='paye' AND paye_le>=date('now','-30 day')").m
     }
   })
@@ -49,11 +52,28 @@ export function routesPilotage(ctx) {
       const total = vs.reduce((s, v) => s + v.part_organisme, 0)
       const n = get('SELECT COUNT(*) c FROM bordereaux').c + 1
       const numero = `BRD-${maintenant().slice(0, 4)}-${String(n).padStart(4, '0')}`
-      run('INSERT INTO bordereaux (id,numero,organisme_id,organisme_nom,du,au,nb_ventes,total,created_at) VALUES (?,?,?,?,?,?,?,?,?)', id, numero, o.id, o.nom, du, au, vs.length, total, maintenant())
+      const echeance = new Date(Date.now() + (o.delai_paiement ?? 30) * 86400000).toISOString().slice(0, 10)
+      run('INSERT INTO bordereaux (id,numero,organisme_id,organisme_nom,du,au,nb_ventes,total,created_at,echeance) VALUES (?,?,?,?,?,?,?,?,?,?)', id, numero, o.id, o.nom, du, au, vs.length, total, maintenant(), echeance)
       for (const v of vs) run('UPDATE ventes SET bordereau_id=? WHERE id=?', id, v.id)
       journal(user, 'bordereau', `${numero} ${o.nom} ${total}F`, ipDe(req))
       return { id, numero, total, nb_ventes: vs.length }
     })
+  })
+  // Relevé par assureur : ce qui reste à facturer, les bordereaux en attente, les retards, le délai moyen de paiement
+  route('GET', '/api/tiers-payant/releve', ({ user, q }) => {
+    exiger(user, 'tierspayant')
+    const o = get('SELECT * FROM organismes WHERE id=?', q.get('organisme_id') ?? '')
+    if (!o) throw new Erreur(404, 'Organisme introuvable')
+    const afact = get("SELECT COUNT(*) nb, COALESCE(SUM(part_organisme),0) m FROM ventes WHERE statut='valide' AND organisme_id=? AND bordereau_id IS NULL", o.id)
+    const brds = all("SELECT numero,created_at,du,au,nb_ventes,total,statut,echeance,paye_le, CASE WHEN statut='emis' AND echeance < date('now') THEN CAST(julianday('now') - julianday(echeance) AS INTEGER) ELSE 0 END retard FROM bordereaux WHERE organisme_id=? ORDER BY created_at DESC LIMIT 100", o.id)
+    const emis = brds.filter((b) => b.statut === 'emis')
+    const payes = brds.filter((b) => b.statut === 'paye' && b.paye_le)
+    return {
+      organisme: { id: o.id, nom: o.nom, taux: o.taux, plafond: o.plafond, adherent_obligatoire: o.adherent_obligatoire, delai_paiement: o.delai_paiement },
+      a_facturer: afact, bordereaux: brds, total_du: emis.reduce((s, b) => s + b.total, 0),
+      total_echu: emis.filter((b) => b.retard > 0).reduce((s, b) => s + b.total, 0),
+      delai_moyen_paiement: payes.length ? Math.round(payes.reduce((s, b) => s + (Date.parse(b.paye_le) - Date.parse(b.created_at)) / 86400000, 0) / payes.length) : null
+    }
   })
   route('GET', '/api/bordereaux', ({ user }) => { exiger(user, 'tierspayant'); return all('SELECT * FROM bordereaux ORDER BY created_at DESC LIMIT 100') })
   route('GET', '/api/bordereaux/([^/]+)', ({ user, params }) => {

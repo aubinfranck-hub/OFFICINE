@@ -17,13 +17,13 @@ export function routesStock(ctx) {
       dosage: texte(b.dosage, 'Dosage', { max: 60 }), forme: texte(b.forme, 'Forme', { max: 60 }), famille: texte(b.famille, 'Famille', { max: 60 }),
       labo: texte(b.labo, 'Laboratoire', { max: 80 }), emplacement: texte(b.emplacement, 'Emplacement', { max: 40 }),
       prix, prix_achat: prixAchat, seuil: entier(b.seuil ?? 0, 'Stock minimum'), stock_max: entier(b.stock_max ?? 0, 'Stock maximum'),
-      ordonnance: bool(b.ordonnance), stupefiant: bool(b.stupefiant), generique: bool(b.generique),
+      ordonnance: bool(b.ordonnance), stupefiant: bool(b.stupefiant), generique: bool(b.generique), remboursable: b.remboursable === undefined || b.remboursable === '' ? 1 : bool(b.remboursable),
       fournisseur_id: b.fournisseur_id ? String(b.fournisseur_id) : null
     }
     if (f.stupefiant) f.ordonnance = 1
     return f
   }
-  const CHAMPS = ['code', 'nom', 'dci', 'dosage', 'forme', 'famille', 'labo', 'emplacement', 'prix', 'prix_achat', 'seuil', 'stock_max', 'ordonnance', 'stupefiant', 'generique', 'fournisseur_id']
+  const CHAMPS = ['code', 'nom', 'dci', 'dosage', 'forme', 'famille', 'labo', 'emplacement', 'prix', 'prix_achat', 'seuil', 'stock_max', 'ordonnance', 'stupefiant', 'generique', 'remboursable', 'fournisseur_id']
 
   function enregistrerProduit(f, id) {
     if (f.code) {
@@ -47,7 +47,7 @@ export function routesStock(ctx) {
     const actif = q.get('filtre') === 'inactif' ? 0 : 1
     const fam = q.get('famille') ? 'AND p.famille=?' : ''
     const args = [actif, ...(rech ? [rech, rech, rech] : []), ...(q.get('famille') ? [q.get('famille')] : [])]
-    return all(`SELECT p.id,p.code,p.nom,p.dci,p.dosage,p.forme,p.famille,p.labo,p.prix,p.seuil,p.stock_max,p.emplacement,p.ordonnance,p.stupefiant,p.generique,p.actif,p.fournisseur_id${colonnesVisibles(user)},
+    return all(`SELECT p.id,p.code,p.nom,p.dci,p.dosage,p.forme,p.famille,p.labo,p.prix,p.seuil,p.stock_max,p.emplacement,p.ordonnance,p.stupefiant,p.generique,p.remboursable,p.actif,p.fournisseur_id${colonnesVisibles(user)},
       ${STOCK} stock FROM produits p WHERE p.actif=? ${rech ? 'AND (p.nom LIKE ? OR p.dci LIKE ? OR p.code LIKE ?)' : ''} ${fam} ${filtre} ORDER BY p.nom LIMIT 200`, ...args)
   })
   route('GET', '/api/familles', ({ user }) => { exiger(user, 'vente'); return all("SELECT DISTINCT famille FROM produits WHERE famille IS NOT NULL AND famille<>'' ORDER BY famille").map((r) => r.famille) })

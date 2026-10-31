@@ -15,7 +15,7 @@ VUES.produits = {
     var fams = [''].concat(S.data.familles || [])
     var barre = '<div class="carte"><div class="ligne-form"><div style="flex:2">' + '<label>Recherche</label><input id="pq" data-i="pq" value="' + esc(f.q) + '" placeholder="Nom, DCI ou code-barres" autocomplete="off"></div>' +
       champ('Famille', 'pfam', { opts: fams.map(function (x) { return [x, x || 'Toutes'] }), val: f.famille }) + champ('Filtre', 'pfil', { opts: [['', 'Tous les produits'], ['rupture', 'En rupture'], ['bas', 'Stock bas'], ['stup', 'Stupéfiants'], ['ordonnance', 'Sur ordonnance'], ['inactif', 'Désactivés']], val: f.filtre }) +
-      (peut('produits') && !cloud() ? '<button class="p" data-a="nouveauProduit">+ Nouveau produit</button><button data-a="importProduits">📥 Importer</button>' : '') + '</div></div>'
+      (peut('produits') && !cloud() ? '<button class="p" data-a="nouveauProduit">+ Nouveau produit</button><button data-a="importProduits">📥 Importer</button>' : '') + (peut('produits') ? '<button data-a="exportCatalogue">⬇ Exporter (Excel)</button>' : '') + '</div></div>'
     var marges = peut('marges')
     var lignes = l.map(function (p) {
       var marge = marges && p.prix_achat > 0 ? Math.round((p.prix - p.prix_achat) / p.prix * 100) + ' %' : ''
@@ -55,7 +55,7 @@ function formProduit(p) {
     '<div class="ligne-form">' + champ('Famille', 'p-fam', { opts: [['', '—']].concat(fams.map(function (f) { return [f, f] })), val: p.famille }) + champ('Laboratoire', 'p-labo', { val: p.labo }) + champ('Emplacement', 'p-empl', { val: p.emplacement, ph: 'A1' }) + '</div>' +
     '<div class="ligne-form">' + champ('Prix de vente (F)', 'p-prix', { type: 'number', val: p.prix }) + (marges ? champ('Prix d\'achat (F)', 'p-pa', { type: 'number', val: p.prix_achat }) : '') + champ('Stock minimum', 'p-seuil', { type: 'number', val: p.seuil == null ? 5 : p.seuil }) + champ('Stock maximum', 'p-max', { type: 'number', val: p.stock_max }) + '</div>' +
     (peut('achats') ? '<div class="ligne-form">' + champ('Fournisseur habituel', 'p-four', { opts: fours, val: p.fournisseur_id }) + '</div>' : '') +
-    '<div class="ligne-form" style="margin-top:8px">' + champ('Sur ordonnance', 'p-ordo', { type: 'check', val: p.ordonnance }) + champ('Stupéfiant / psychotrope (registre)', 'p-stup', { type: 'check', val: p.stupefiant }) + champ('Générique', 'p-gen', { type: 'check', val: p.generique }) + (p.id ? champ('Produit actif', 'p-actif', { type: 'check', val: p.actif == null ? 1 : p.actif }) : '') + '</div>'
+    '<div class="ligne-form" style="margin-top:8px">' + champ('Sur ordonnance', 'p-ordo', { type: 'check', val: p.ordonnance }) + champ('Stupéfiant / psychotrope (registre)', 'p-stup', { type: 'check', val: p.stupefiant }) + champ('Générique', 'p-gen', { type: 'check', val: p.generique }) + champ('Remboursable par les organismes', 'p-remb', { type: 'check', val: p.remboursable == null ? 1 : p.remboursable }) + (p.id ? champ('Produit actif', 'p-actif', { type: 'check', val: p.actif == null ? 1 : p.actif }) : '') + '</div>'
 }
 ACT.nouveauProduit = function () { ouvrirModal({ titre: 'Nouveau produit', large: true, corps: formProduit(), actions: [{ l: 'Annuler', a: 'fermer' }, { l: 'Enregistrer', a: 'sauverProduit', cls: 'p' }] }) }
 ACT.modifierProduit = function (id) {
@@ -64,7 +64,7 @@ ACT.modifierProduit = function (id) {
 }
 ACT.sauverProduit = function (id) {
   if (!val('p-nom')) return modalErr('Le nom est obligatoire')
-  var b = { id: id || undefined, nom: val('p-nom'), code: val('p-code'), dci: val('p-dci'), dosage: val('p-dosage'), forme: val('p-forme'), famille: val('p-fam'), labo: val('p-labo'), emplacement: val('p-empl'), prix: num('p-prix'), seuil: num('p-seuil'), stock_max: num('p-max'), ordonnance: chk('p-ordo'), stupefiant: chk('p-stup'), generique: chk('p-gen') }
+  var b = { id: id || undefined, nom: val('p-nom'), code: val('p-code'), dci: val('p-dci'), dosage: val('p-dosage'), forme: val('p-forme'), famille: val('p-fam'), labo: val('p-labo'), emplacement: val('p-empl'), prix: num('p-prix'), seuil: num('p-seuil'), stock_max: num('p-max'), ordonnance: chk('p-ordo'), stupefiant: chk('p-stup'), generique: chk('p-gen'), remboursable: chk('p-remb') }
   if ($('#p-pa')) b.prix_achat = num('p-pa'); else if (window.__fiche && id) b.prix_achat = window.__fiche.prix_achat || 0
   if ($('#p-four')) b.fournisseur_id = val('p-four') || null; else if (window.__fiche && id) b.fournisseur_id = window.__fiche.fournisseur_id
   if (id) b.actif = chk('p-actif')
@@ -81,7 +81,7 @@ ACT.perteLot = function (id, el) {
 ACT.validerPerte = function (id) { api('/api/pertes', { body: { lot_id: id, qte: num('pt-q'), motif: val('pt-m') } }).then(function (r) { fermerModal(); toast('Retiré du stock · valeur perdue ' + F(r.valeur)); rafraichirCatalogue(); chargerVue() }, function (e) { modalErr(e.message) }) }
 
 // ───────── Import du catalogue (CSV / Excel enregistré en CSV) ─────────
-var ALIAS = { code: ['code', 'code-barres', 'codebarres', 'cip', 'ean', 'barcode'], nom: ['nom', 'designation', 'désignation', 'produit', 'libelle', 'libellé'], dci: ['dci', 'molecule', 'molécule'], dosage: ['dosage'], forme: ['forme'], famille: ['famille', 'categorie', 'catégorie', 'rayon'], labo: ['labo', 'laboratoire', 'fabricant'], prix: ['prix', 'prix vente', 'prix_vente', 'pv', 'prix de vente'], prix_achat: ['prix achat', 'prix_achat', 'pa', 'prix d\'achat', 'cout', 'coût'], seuil: ['seuil', 'stock min', 'stock_min', 'minimum'], stock_max: ['stock max', 'stock_max', 'maximum'], emplacement: ['emplacement', 'rayonnage', 'place'], ordonnance: ['ordonnance', 'rx'], stupefiant: ['stupefiant', 'stupéfiant', 'psychotrope'], generique: ['generique', 'générique'] }
+var ALIAS = { code: ['code', 'code-barres', 'codebarres', 'cip', 'ean', 'barcode'], nom: ['nom', 'designation', 'désignation', 'produit', 'libelle', 'libellé'], dci: ['dci', 'molecule', 'molécule'], dosage: ['dosage'], forme: ['forme'], famille: ['famille', 'categorie', 'catégorie', 'rayon'], labo: ['labo', 'laboratoire', 'fabricant'], prix: ['prix', 'prix vente', 'prix_vente', 'pv', 'prix de vente'], prix_achat: ['prix achat', 'prix_achat', 'pa', 'prix d\'achat', 'cout', 'coût'], seuil: ['seuil', 'stock min', 'stock_min', 'minimum'], stock_max: ['stock max', 'stock_max', 'maximum'], emplacement: ['emplacement', 'rayonnage', 'place'], ordonnance: ['ordonnance', 'rx'], stupefiant: ['stupefiant', 'stupéfiant', 'psychotrope'], generique: ['generique', 'générique'], remboursable: ['remboursable', 'rembours', 'remboursé'] }
 function lireCsv(texte) {
   var t = texte.replace(/^﻿/, ''), sep = [';', '\t', ','].sort(function (a, b) { return t.split(b).length - t.split(a).length })[0]
   var rows = [], row = [], cur = '', q = false
@@ -99,11 +99,11 @@ function lireCsv(texte) {
   return rows.slice(1).map(function (r) { var o = {}; cols.forEach(function (c, i) { if (c) o[c] = (r[i] || '').trim() }); return o })
 }
 ACT.importProduits = function () {
-  ouvrirModal({ titre: 'Importer le catalogue', large: true, corps: '<p>Prépare un fichier <b>Excel</b>, puis fais « Enregistrer sous » → <b>CSV</b>. La première ligne contient les titres des colonnes : <i>code, nom, dci, dosage, forme, famille, labo, prix, prix_achat, seuil, stock_max, emplacement, ordonnance, stupefiant, generique</i> (seuls <b>nom</b> et <b>prix</b> sont obligatoires). Un produit déjà présent (même code, ou même nom et dosage) est mis à jour. Le stock se saisit ensuite par réception ou inventaire.</p><button data-a="modeleCsv">⬇ Télécharger un modèle</button><label>Fichier CSV</label><input type="file" id="imp-fichier" accept=".csv,.txt,text/csv" data-c="impfichier"><div id="imp-apercu" class="m" style="margin-top:10px"></div>', actions: [{ l: 'Annuler', a: 'fermer' }, { l: 'Importer', a: 'lancerImport', cls: 'p', id: 'btn-imp' }] })
+  ouvrirModal({ titre: 'Importer le catalogue', large: true, corps: '<p>Prépare un fichier <b>Excel</b>, puis fais « Enregistrer sous » → <b>CSV</b>. La première ligne contient les titres des colonnes : <i>code, nom, dci, dosage, forme, famille, labo, prix, prix_achat, seuil, stock_max, emplacement, ordonnance, stupefiant, generique, remboursable</i> (seuls <b>nom</b> et <b>prix</b> sont obligatoires). Un produit déjà présent (même code, ou même nom et dosage) est mis à jour. Le stock se saisit ensuite par réception ou inventaire.</p><button data-a="modeleCsv">⬇ Télécharger un modèle</button><label>Fichier CSV</label><input type="file" id="imp-fichier" accept=".csv,.txt,text/csv" data-c="impfichier"><div id="imp-apercu" class="m" style="margin-top:10px"></div>', actions: [{ l: 'Annuler', a: 'fermer' }, { l: 'Importer', a: 'lancerImport', cls: 'p', id: 'btn-imp' }] })
   $('#btn-imp').disabled = true; window.__imp = null
 }
 ACT.modeleCsv = function () {
-  var csv = 'code;nom;dci;dosage;forme;famille;labo;prix;prix_achat;seuil;stock_max;emplacement;ordonnance;stupefiant;generique\r\n6001001;Doliprane 500 mg;paracétamol;500 mg;comprimé;Antalgiques;Sanofi;600;380;30;120;A1;non;non;non\r\n'
+  var csv = 'code;nom;dci;dosage;forme;famille;labo;prix;prix_achat;seuil;stock_max;emplacement;ordonnance;stupefiant;generique;remboursable\r\n6001001;Doliprane 500 mg;paracétamol;500 mg;comprimé;Antalgiques;Sanofi;600;380;30;120;A1;non;non;non;oui\r\n'
   var a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv' })); a.download = 'modele-catalogue.csv'; a.click()
 }
 INP.impfichier = function (v, el) {
@@ -124,6 +124,8 @@ ACT.lancerImport = function () {
     rafraichirCatalogue(); chargerVue()
   }, function (e) { b.disabled = false; b.textContent = 'Importer'; modalErr(e.message) })
 }
+
+ACT.exportCatalogue = function () { telecharger('/api/export/produits', 'catalogue.csv') }
 
 // ───────── Stock : alertes, mouvements, inventaire ─────────
 VUES.stock = {

@@ -20,7 +20,9 @@ Pharmacien (téléphone, n'importe où) ──web──▶  Serveur LGO cloud (c
 
 **Clients** — fiches, historique, dette et règlements, points de fidélité.
 
-**Tiers payant** — parts des organismes à facturer, bordereaux imprimables, suivi des paiements, taux configurés par le pharmacien.
+**Tiers payant par assureur** — chaque assureur a ses conditions (taux, plafond par vente, n° d'adhérent obligatoire, délai de paiement) · produits « non remboursables » (parapharmacie) laissés au patient · bordereaux imprimables avec échéance · relevé par assureur (à facturer, à encaisser, retards, délai moyen de paiement).
+
+**Données** — sauvegarde automatique quotidienne de la base (14 jours gardés) · exports Excel (ventes, stock, catalogue ré-importable).
 
 **Stupéfiants** — registre automatique (entrées, sorties, solde, patient, prescripteur, ordonnance), imprimable.
 
@@ -45,7 +47,7 @@ MODE=cloud SYNC_KEY=<clé-secrète> INIT_EMAIL=<email> INIT_MDP=<mot-de-passe> I
 L'officine envoie ses données toutes les 15 secondes quand internet est disponible (`CLOUD_URL` et `SYNC_KEY` dans `config-lgo.bat`). Si l'hébergeur perd ses données, l'officine les renvoie toute seule.
 
 ## Tests
-`npm test` : 47 vérifications du serveur (migration depuis l'ancienne version, droits, FEFO, paiements, retours, caisse, tiers payant, inventaire, stupéfiants, statistiques, synchronisation cloud).
+`npm test` : 55 vérifications du serveur (migration depuis l'ancienne version, droits, FEFO, paiements, retours, caisse, tiers payant, inventaire, stupéfiants, statistiques, synchronisation cloud).
 
 ## Limites connues
 - Pas de connexion aux bases officielles de médicaments (interactions, remboursements) : le catalogue est celui de l'officine.
