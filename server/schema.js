@@ -181,7 +181,25 @@ function migrerV3(db) {
   } catch (e) { db.exec('ROLLBACK'); throw e }
 }
 
+// v4 : fiches conseil au comptoir (symptôme, âge, poids → produits en stock et précautions, rédigées par le pharmacien)
+function migrerV4(db) {
+  const version = Number(db.prepare("SELECT v FROM meta WHERE k='schema_version'").get()?.v ?? 0)
+  if (version >= 4) return
+  db.exec('BEGIN')
+  try {
+    db.exec(`CREATE TABLE IF NOT EXISTS conseils (
+      id TEXT PRIMARY KEY, symptome TEXT NOT NULL, type TEXT NOT NULL DEFAULT 'produit', titre TEXT NOT NULL DEFAULT '',
+      produit_id TEXT, age_min_mois INTEGER NOT NULL DEFAULT 0, age_max_mois INTEGER NOT NULL DEFAULT 0,
+      poids_min INTEGER NOT NULL DEFAULT 0, poids_max INTEGER NOT NULL DEFAULT 0, posologie TEXT NOT NULL DEFAULT '', precautions TEXT NOT NULL DEFAULT '',
+      grossesse_non INTEGER NOT NULL DEFAULT 0, actif INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL);
+      CREATE INDEX IF NOT EXISTS idx_conseils_symptome ON conseils(symptome);
+      INSERT OR REPLACE INTO meta (k,v) VALUES ('schema_version','4')`)
+    db.exec('COMMIT')
+  } catch (e) { db.exec('ROLLBACK'); throw e }
+}
+
 export function migrer(db) {
   migrerV2(db)
   migrerV3(db)
+  migrerV4(db)
 }

@@ -110,3 +110,10 @@ svg text{font:11px system-ui,sans-serif;fill:var(--m)}
   .zone{padding:10px}
   .ticket-panneau{min-height:300px}
 }
+
+/* Conseil au comptoir (tablette) */
+.chips{display:flex;flex-wrap:wrap;gap:10px;margin-top:8px}
+.chip{min-height:52px;padding:10px 20px;border-radius:26px;border:2px solid var(--b);background:#fff;font-size:17px;cursor:pointer}
+.chip.sel{background:var(--v);border-color:var(--v);color:#fff}
+.conseil-ligne{display:flex;gap:14px;align-items:flex-start;padding:12px 0;border-top:1px solid #e6ece9}
+.conseil-ligne:first-of-type{border-top:0}

@@ -1,6 +1,7 @@
 // Données de démonstration (fictives) : à ne PAS utiliser en production.
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { semerConseils } from './routes-conseil.js'
 import { ouvrirBase, uuid, hacher, nouveauSecretTotp, maintenant } from './lib.js'
 
 export function semer(db, opts = {}) {
@@ -110,6 +111,7 @@ for (let j = 14; j >= 1; j--) {
     }
   }
 }
+  semerConseils(db)
   return { secret }
 }
 

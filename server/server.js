@@ -11,6 +11,7 @@ import { routesAchats } from './routes-achats.js'
 import { routesPilotage } from './routes-pilotage.js'
 import { sync } from './sync.js'
 import { routesOutils } from './routes-outils.js'
+import { routesConseil } from './routes-conseil.js'
 import { semer } from './seed.js'
 
 const ICI = path.dirname(fileURLToPath(import.meta.url))
@@ -40,6 +41,7 @@ export function creerServeur({ fichier = process.env.DB || 'lgo.db', mode = proc
   routesStock(ctx)
   routesAchats(ctx)
   routesPilotage(ctx)
+  routesConseil(ctx)
   const outils = routesOutils(ctx)
   const synchro = sync(ctx)
 

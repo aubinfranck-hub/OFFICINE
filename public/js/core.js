@@ -132,7 +132,7 @@ function imprimer(html) { $('#impression').innerHTML = html; setTimeout(function
 // ───────── Navigation ─────────
 var NAV = [
   ['comptoir', 'Comptoir', '🛒', 'vente', true], ['ventes', 'Ventes', '🧾', 'vente'], ['caisse', 'Caisse', '💰', 'caisse', true],
-  ['produits', 'Produits', '💊', 'vente'], ['stock', 'Stock', '📦', 'stock'], ['achats', 'Achats', '🚚', 'achats'],
+  ['conseil', 'Conseil', '🩺', 'vente'], ['produits', 'Produits', '💊', 'vente'], ['stock', 'Stock', '📦', 'stock'], ['achats', 'Achats', '🚚', 'achats'],
   ['clients', 'Clients', '👥', 'clients'], ['tierspayant', 'Tiers payant', '🏥', 'tierspayant'], ['stup', 'Stupéfiants', '📕', 'stupefiant'],
   ['stats', 'Statistiques', '📊', 'stats'], ['reglages', 'Réglages', '⚙️', 'parametres']
 ]
