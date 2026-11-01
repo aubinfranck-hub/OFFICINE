@@ -130,6 +130,31 @@ function telecharger(url, nom) {
 function imprimer(html) { $('#impression').innerHTML = html; setTimeout(function () { window.print() }, 80) }
 
 // ───────── Navigation ─────────
+
+// ───────── Icônes (traits fins, style uniforme) ─────────
+var ICONS = {
+  comptoir: '<circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>',
+  ventes: '<path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 17.5v-11"/>',
+  caisse: '<path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/>',
+  conseil: '<path d="M11 2v2"/><path d="M5 2v2"/><path d="M5 3H4a2 2 0 0 0-2 2v4a6 6 0 0 0 12 0V5a2 2 0 0 0-2-2h-1"/><path d="M8 15a6 6 0 0 0 12 0v-3"/><circle cx="20" cy="10" r="2"/>',
+  produits: '<path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/><path d="m8.5 8.5 7 7"/>',
+  stock: '<path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/>',
+  achats: '<path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M15 18H9"/><path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14"/><circle cx="17" cy="18" r="2"/><circle cx="7" cy="18" r="2"/>',
+  clients: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+  tierspayant: '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/>',
+  stup: '<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>',
+  stats: '<path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/>',
+  reglages: '<line x1="21" x2="14" y1="4" y2="4"/><line x1="10" x2="3" y1="4" y2="4"/><line x1="21" x2="12" y1="12" y2="12"/><line x1="8" x2="3" y1="12" y2="12"/><line x1="21" x2="16" y1="20" y2="20"/><line x1="12" x2="3" y1="20" y2="20"/><line x1="14" x2="14" y1="2" y2="6"/><line x1="8" x2="8" y1="10" y2="14"/><line x1="16" x2="16" y1="18" y2="22"/>',
+  compte: '<circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1"/>',
+  sortir: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/>',
+  ca: '<line x1="12" x2="12" y1="2" y2="22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>',
+  panier: '<path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/>',
+  marge: '<polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/>',
+  alerte: '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
+  dette: '<rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/>',
+  croix: '<path d="M9 3h6v6h6v6h-6v6H9v-6H3V9h6z"/>'
+}
+function ico(n, t) { return '<svg class="ico" width="' + (t || 20) + '" height="' + (t || 20) + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (ICONS[n] || '') + '</svg>' }
 var NAV = [
   ['comptoir', 'Comptoir', '🛒', 'vente', true], ['ventes', 'Ventes', '🧾', 'vente'], ['caisse', 'Caisse', '💰', 'caisse', true],
   ['conseil', 'Conseil', '🩺', 'vente'], ['produits', 'Produits', '💊', 'vente'], ['stock', 'Stock', '📦', 'stock'], ['achats', 'Achats', '🚚', 'achats'],
@@ -146,8 +171,10 @@ ACT.monCompte = function () {
 }
 ACT.changerMdp = function () { api('/api/moi/mdp', { body: { ancien: document.getElementById('mc-old').value, nouveau: document.getElementById('mc-new').value } }).then(function () { fermerModal(); toast('Mot de passe changé') }, function (e) { modalErr(e.message) }) }
 function menu() {
-  var items = navVisible().map(function (n) { return '<button data-a="aller" data-v="' + n[0] + '" class="' + (S.vue === n[0] ? 'on' : '') + '" title="' + n[1] + '"><span class="ic">' + n[2] + '</span><span class="tx">' + n[1] + '</span></button>' }).join('')
-  return '<nav id="menu"><div class="logo"><i>✚</i><b>LGO</b></div>' + items + '<div class="bas"><div class="qui">' + esc(S.user.nom) + '<br><small>' + esc(S.user.role_label || '') + '</small></div>' + (enLigne() || S.user.role === 'titulaire' ? '<button data-a="monCompte" title="Mon compte"><span class="ic">👤</span><span class="tx">Mon compte</span></button>' : '') + '<button data-a="sortir" title="Se déconnecter"><span class="ic">⏻</span><span class="tx">Déconnexion</span></button></div></nav>'
+  var items = navVisible().map(function (n) { return '<button data-a="aller" data-v="' + n[0] + '" class="' + (S.vue === n[0] ? 'on' : '') + '" title="' + n[1] + '">' + ico(n[0], 20) + '<span class="tx">' + n[1] + '</span></button>' }).join('')
+  var ini = esc((S.user.nom || '?').trim().charAt(0).toUpperCase())
+  return '<nav id="menu"><div class="logo"><i>' + ico('croix', 18) + '</i><b>LGO<small>Officine</small></b></div><div class="liste">' + items + '</div><div class="bas"><div class="qui"><span class="avatar">' + ini + '</span><span class="tx"><b>' + esc(S.user.nom) + '</b><small>' + esc(S.user.role_label || '') + '</small></span></div>' +
+    (enLigne() || S.user.role === 'titulaire' ? '<button data-a="monCompte" title="Mon compte">' + ico('compte', 20) + '<span class="tx">Mon compte</span></button>' : '') + '<button data-a="sortir" title="Se déconnecter">' + ico('sortir', 20) + '<span class="tx">Déconnexion</span></button></div></nav>'
 }
 function chipsEtat() {
   var c = ''
@@ -170,7 +197,7 @@ function rendre() {
   else if (S.vue === 'login') h = vueLogin()
   else {
     var v = VUES[S.vue] || VUES.stats
-    h = '<div id="racine">' + menu() + '<main id="contenu"><div class="entete"><h2>' + esc(v.titre || '') + '</h2><span class="sp"></span>' + chipsEtat() + '</div><div class="zone">' + v.html() + '</div></main></div>'
+    h = '<div id="racine">' + menu() + '<main id="contenu"><div class="entete"><h2>' + esc(v.titre || '') + '</h2><span class="sp"></span><span class="date-jour">' + new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }) + '</span>' + chipsEtat() + '</div><div class="zone">' + v.html() + '</div></main></div>'
   }
   $('#app').innerHTML = h
   majStatut()
@@ -193,7 +220,7 @@ function vueLogin() {
   } else {
     corps = '<p class="c"><b>' + esc(S.choisi.nom) + '</b> · saisis ton PIN</p><div class="points">' + '●'.repeat(S.pin.length) + '</div><div class="pin">' + ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'C', '0', 'OK'].map(function (k) { return '<button data-a="touche" data-v="' + k + '" class="' + (k === 'OK' ? 'p' : '') + '">' + k + '</button>' }).join('') + '</div><div class="err c">' + esc(S.err) + '</div><button data-a="retour" style="width:100%">Changer de personne</button>'
   }
-  return '<div class="centre carte"><h3 style="font-size:19px">✚ ' + esc((S.etat && S.etat.officine) || 'LGO Officine') + '</h3>' + tabs + corps + '</div>'
+  return '<div class="fond-login"><div class="centre carte login"><div class="marque"><i>' + ico('croix', 26) + '</i><div><b>' + esc((S.etat && S.etat.officine) || 'LGO Officine') + '</b><small>Logiciel de gestion d\'officine</small></div></div>' + tabs + corps + '</div></div>'
 }
 function action(fn) { S.err = ''; return Promise.resolve().then(fn).then(null, function (e) { S.err = e.message; rendre() }) }
 ACT.installer = function () { action(function () { return api('/api/installation', { body: { officine: val('s_off'), nom: val('s_nom'), email: val('s_mail'), mdp: document.getElementById('s_mdp').value } }).then(function (r) { S.secret = r; rendre() }) }) }

@@ -17,7 +17,8 @@ VUES.stats = {
     var barre = '<div class="onglets">' + PERIODES.map(function (p) { return '<button data-a="periode" data-v="' + p[0] + '" class="' + (f.periode === p[0] ? 'sel' : '') + '">' + p[1] + '</button>' }).join('') + '</div>' +
       (f.periode === 'perso' ? '<div class="carte"><div class="ligne-form">' + champ('Du', 'sp-du', { type: 'date', val: f.du }) + champ('Au', 'sp-au', { type: 'date', val: f.au }) + '<button class="p" data-a="periodePerso">Afficher</button></div></div>' : '')
     if (!s) return barre + '<p class="m">Chargement…</p>'
-    var kpi = function (t, v, sous, cls) { return '<div class="carte kpi"><span>' + t + '</span><b class="' + (cls || '') + '">' + v + '</b>' + (sous ? '<small class="m">' + sous + '</small>' : '') + '</div>' }
+    var kpiIco = function (t) { t = String(t).toLowerCase(); return /chiffre/.test(t) ? 'ca' : /panier/.test(t) ? 'panier' : /marge|remise/.test(t) ? 'marge' : /dette|cr[ée]ance|organisme|tiers/.test(t) ? 'dette' : /stock/.test(t) ? 'stock' : 'ventes' }
+    var kpi = function (t, v, sous, cls) { return '<div class="carte kpi"><div class="kpi-t"><span>' + t + '</span><i class="kpi-i">' + ico(kpiIco(t), 18) + '</i></div><b class="' + (cls || '') + '">' + v + '</b>' + (sous ? '<small class="m">' + sous + '</small>' : '') + '</div>' }
     var sync = cloud() && S.etat && S.etat.derniere_sync ? '<p class="m">Données de l\'officine mises à jour le ' + dt(S.etat.derniere_sync) + '</p>' : ''
     var alertes = '<div class="grille kpis" style="margin-bottom:14px">' +
       kpi('Créances clients', F(s.creances_clients), 'ardoise des clients', s.creances_clients ? 'warn' : '') + kpi('Tiers payant à encaisser', F(s.creances_organismes), 'organismes', s.creances_organismes ? 'warn' : '') +

@@ -103,8 +103,11 @@ for (let j = 14; j >= 1; j--) {
     let total = 0
     const lignes = choix.map((p) => { const lot = p.ls.find((l) => l.qte > 3); const q = 1 + Math.floor(alea() * 2); lot.qte -= q; total += q * p.prix; return { p, lot, q } })
     const mode = MODES[Math.floor(alea() * MODES.length)]
-    run("INSERT INTO ventes (id,numero,user_id,user_nom,total,mode,part_patient,paiement_statut,created_at,type,part_organisme) VALUES (?,?,?,?,?,?,?,'confirme',?,'vente',0)", vid, numero, awa, 'Awa', total, mode, total, iso)
-    run('INSERT INTO paiements (id,vente_id,mode,montant,statut,created_at) VALUES (?,?,?,?,?,?)', uuid(), vid, mode, total, 'confirme', iso)
+    // 1 vente sur 5 est prise en charge par un assureur (données de démonstration pour l'écran Tiers payant)
+    const assure = compteur % 5 === 0 ? [['MUGEFCI', 80], ['Assurance démo', 70], ['Mutuelle entreprise', 90]][compteur % 3] : null
+    const partOrg = assure ? Math.round(total * assure[1] / 100) : 0, partPat = total - partOrg
+    run("INSERT INTO ventes (id,numero,user_id,user_nom,total,mode,part_patient,paiement_statut,created_at,type,part_organisme,organisme,taux_prise_charge,organisme_id,num_adherent) VALUES (?,?,?,?,?,?,?,'confirme',?,'vente',?,?,?,?,?)", vid, numero, awa, 'Awa', total, mode, partPat, iso, partOrg, assure ? assure[0] : null, assure ? assure[1] : 0, assure ? organismes[assure[0]] : null, assure ? 'AD-' + (100000 + compteur) : null)
+    run('INSERT INTO paiements (id,vente_id,mode,montant,statut,created_at) VALUES (?,?,?,?,?,?)', uuid(), vid, mode, partPat, 'confirme', iso)
     for (const { p, lot, q } of lignes) {
       run('INSERT INTO lignes_vente (vente_id,produit_id,lot_id,nom,qte,prix,pa) VALUES (?,?,?,?,?,?,?)', vid, p.id, lot.id, p.nom, q, p.prix, p.pa)
       run('UPDATE lots SET qte=? WHERE id=?', lot.qte, lot.id)

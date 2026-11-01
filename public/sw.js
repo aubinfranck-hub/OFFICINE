@@ -1,5 +1,5 @@
 // Service worker : l'application s'ouvre même si le serveur de l'officine est éteint.
-const V = 'lgo-v5'
+const V = 'lgo-v6'
 const COQUE = ['/', '/index.html', '/css/app.css', '/js/core.js', '/js/comptoir.js', '/js/gestion.js', '/js/achats.js', '/js/clients.js', '/js/pilotage.js', '/js/conseil.js', '/manifest.webmanifest', '/icon.svg']
 self.addEventListener('install', (e) => { e.waitUntil(caches.open(V).then((c) => c.addAll(COQUE)).then(() => self.skipWaiting())) })
 self.addEventListener('activate', (e) => { e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== V).map((k) => caches.delete(k)))).then(() => self.clients.claim())) })
