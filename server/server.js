@@ -11,7 +11,7 @@ import { routesAchats } from './routes-achats.js'
 import { routesPilotage } from './routes-pilotage.js'
 import { sync } from './sync.js'
 import { routesOutils } from './routes-outils.js'
-import { routesConseil } from './routes-conseil.js'
+import { routesConseil, semerConseils } from './routes-conseil.js'
 import { semer } from './seed.js'
 
 const ICI = path.dirname(fileURLToPath(import.meta.url))
@@ -35,6 +35,9 @@ export function creerServeur({ fichier = process.env.DB || 'lgo.db', mode = proc
 
   // Démonstration publique : jeu de données fictif créé au démarrage (DEMO=1, mode en ligne uniquement)
   if (mode === 'online' && process.env.DEMO === '1' && !get("SELECT 1 x FROM users WHERE role='titulaire'")) semer(db, { enLigne: true, secretTotp: process.env.INIT_TOTP || undefined })
+
+  // Démonstration déjà installée avant l'arrivée du conseil : on ajoute les fiches de démo une seule fois
+  if (mode === 'online' && process.env.DEMO === '1' && !get('SELECT 1 x FROM conseils LIMIT 1')) semerConseils(db)
 
   const { utilisateurDe } = routesAuth(ctx)
   routesComptoir(ctx)
