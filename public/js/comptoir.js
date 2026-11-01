@@ -213,9 +213,11 @@ function terminerVente(snap, horsLigne) {
   C.lignes = []; C.client = null; C.organisme = ''; C.adherent = ''; C.remise = 0; C.q = ''
   ouvrirModal({ titre: horsLigne ? 'Vente enregistrée sur la tablette' : 'Vente ' + esc(snap.numero) + ' enregistrée', corps: (horsLigne ? '<div class="alerte">Le serveur de l\'officine est injoignable. La vente est gardée sur cet appareil et sera envoyée automatiquement.</div>' : '') +
     '<div class="tot grand"><span>Encaissé</span><span>' + F(snap.aPayer) + '</span></div>' + (snap.rendu ? '<div class="tot" style="font-size:20px"><span>Rendu monnaie</span><b>' + F(snap.rendu) + '</b></div>' : '') + (snap.paiements.some(function (p) { return MOBILE.indexOf(p.mode) >= 0 }) ? '<p class="warn">Paiement mobile à confirmer par le titulaire après vérification.</p>' : ''),
-    actions: [{ l: '🖨 Imprimer le ticket', a: 'imprimerSnap', v: '' }, { l: 'Nouvelle vente', a: 'fermer', cls: 'p' }] })
+    actions: [{ l: store.get('ticket_auto') === false ? 'Reçu automatique : non' : '✔ Reçu automatique : oui', a: 'ticketAuto', v: '' }, { l: '🖨 Imprimer le ticket', a: 'imprimerSnap', v: '' }, { l: 'Nouvelle vente', a: 'fermer', cls: 'p' }] })
   window.__snap = snap; rendre(); setTimeout(function () { var r = $('#rech'); if (r) r.focus() }, 50)
+  if (store.get('ticket_auto') !== false) setTimeout(function () { imprimer(ticketHtml(snap)) }, 250)
 }
+ACT.ticketAuto = function () { var v = store.get('ticket_auto') === false; store.set('ticket_auto', v); toast(v ? 'Reçu automatique activé' : 'Reçu automatique désactivé'); var b = document.querySelector('[data-a="ticketAuto"]'); if (b) b.textContent = v ? '✔ Reçu automatique : oui' : 'Reçu automatique : non' }
 ACT.imprimerSnap = function () { imprimer(ticketHtml(window.__snap)) }
 function ticketHtml(s) {
   var p = S.param || {}
