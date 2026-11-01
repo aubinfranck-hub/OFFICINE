@@ -9,19 +9,21 @@ let graine = 42
 const alea = () => { graine = (graine * 1664525 + 1013904223) % 4294967296; return graine / 4294967296 }
 const run = (sql, ...p) => db.prepare(sql).run(...p)
 
-const secret = opts.secretTotp || nouveauSecretTotp()
+const E = process.env
+const secret = E.DEMO_SANS_TOTP === '1' ? null : (opts.secretTotp || nouveauSecretTotp())
 const user = (nom, role, extra = {}) => {
   const id = uuid()
   run('INSERT INTO users (id,nom,role,email,mdp_hash,pin_hash,totp_secret,created_at) VALUES (?,?,?,?,?,?,?,?)',
     id, nom, role, extra.email ?? null, extra.mdp ? hacher(extra.mdp) : null, extra.pin ? hacher(extra.pin) : null, extra.secret ?? null, maintenant())
   return id
 }
-user('Pharmacien démo', 'titulaire', { email: 'titulaire@demo.ci', mdp: 'demo-officine-2026', secret })
+user(E.DEMO_TITULAIRE || 'Pharmacien démo', 'titulaire', { email: E.DEMO_EMAIL || 'titulaire@demo.ci', mdp: E.DEMO_MDP || 'demo-officine-2026', secret })
 const enLigne = (email, mdp) => (opts.enLigne ? { email, mdp } : {})
 user('Dr Adjoint', 'pharmacien', { pin: '1111', ...enLigne('adjoint@demo.ci', 'demo-adjoint-26') })
 user('Moussa', 'preparateur', { pin: '2222', ...enLigne('moussa@demo.ci', 'demo-moussa-26') })
 const awa = user('Awa', 'vendeur', { pin: '1234', ...enLigne('awa@demo.ci', 'demo-awa-26') })
-run("INSERT OR REPLACE INTO meta (k,v) VALUES ('officine','Pharmacie Démo')")
+run("INSERT OR REPLACE INTO meta (k,v) VALUES ('officine',?)", E.DEMO_OFFICINE || 'Pharmacie Démo')
+if (E.DEMO_ADRESSE) run("INSERT OR REPLACE INTO meta (k,v) VALUES ('parametres',?)", JSON.stringify({ adresse: E.DEMO_ADRESSE, telephone: E.DEMO_TEL || '', message_ticket: 'Merci de votre confiance. Prompt rétablissement !' }))
 
 const fournisseurs = {}
 for (const [nom, tel, delai] of [['Grossiste Répartiteur A', '+225 27 00 00 01', 2], ['Grossiste Répartiteur B', '+225 27 00 00 02', 3], ['Laboratoire Direct', '+225 27 00 00 03', 7]]) {
